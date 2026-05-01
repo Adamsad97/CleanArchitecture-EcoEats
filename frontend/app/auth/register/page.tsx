@@ -297,7 +297,7 @@ export default function RegisterPage() {
           {role === "RESTAURANT_OWNER" && (
             <div className="rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 text-xs text-amber-700 space-y-1">
               <p className="font-semibold flex items-center gap-1"><IconWarning className="h-3.5 w-3.5" /> Validation obligatoire avant toute activité</p>
-              <p>Après inscription, vous devrez déposer vos documents justificatifs (Kbis, pièce d'identité, attestation d'hygiène). Votre compte sera activé uniquement après validation par notre équipe.</p>
+              <p>Après inscription, vous devrez déposer vos documents justificatifs (Kbis, pièce d&apos;identité, attestation d&apos;hygiène). Votre compte sera activé uniquement après validation par notre équipe.</p>
             </div>
           )}
 

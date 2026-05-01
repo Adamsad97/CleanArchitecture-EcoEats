@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState } from "react";
 import { useAuth } from "../../auth/context/AuthContext";
 import { useAuthenticatedAPI } from "../../auth/hooks/useAuthenticatedAPI";
 import { IconScooter, IconBicycle } from "../../components/Icons";
@@ -17,7 +17,7 @@ import {
 } from "../../auth/services/driverService";
 import type { AvailableDelivery, ActiveDelivery } from "../../auth/services/driverService";
 import { connectSocket } from "../../auth/services/socketService";
-import { geocodeBatch, getCenterFromCoords } from "../../auth/services/geocodingService";
+import { geocodeBatch } from "../../auth/services/geocodingService";
 import type { GeoCoord } from "../../auth/services/geocodingService";
 
 /* ── Étapes de livraison du livreur ── */
@@ -48,20 +48,59 @@ export default function DeliveriesPage() {
   const [geocodedDeliveries, setGeocodedDeliveries] = useState<Map<string, GeoCoord>>(new Map());
   const [geocodingLoading, setGeocodingLoading] = useState(false);
 
+  const loadDeliveries = async () => {
+    const result = await callWithRefresh((token) => getAvailableDeliveries(token));
+    if (result.ok) {
+      const data = result.data ?? [];
+      setDeliveries(data);
+      // Geocode all addresses
+      if (data.length > 0) {
+        setGeocodingLoading(true);
+        console.log(`🗺️  Geocoding ${data.length} deliveries...`);
+        try {
+          // Just pass raw address - geocodeAddress will clean it up
+          const addresses = data.map((delivery) => delivery.deliveryAddress);
+          console.log("Addresses to geocode:", addresses);
+          const coords = await geocodeBatch(addresses);
+          const geocoded = new Map<string, GeoCoord>();
+          data.forEach((delivery, index) => {
+            if (coords[index]) {
+              geocoded.set(delivery.orderId, coords[index]);
+            } else {
+              console.warn(`✗ Failed: ${delivery.deliveryAddress}`);
+            }
+          });
+          setGeocodedDeliveries(geocoded);
+          console.log(`✓ ${geocoded.size}/${data.length} geocoded successfully`);
+        } catch (err) {
+          console.error("Geocoding batch error:", err);
+        } finally {
+          setGeocodingLoading(false);
+        }
+      }
+    }
+  };
+
   /* ── Initialisation : profil + statut online + livraison active ── */
   useEffect(() => {
     if (authLoading) return;
 
-    Promise.all([
-      callWithRefresh((token) => getDriverProfile(token)),
-      callWithRefresh((token) => getActiveDelivery(token)),
-    ]).then(([profileResult, activeResult]) => {
+    let cancelled = false;
+
+    void (async () => {
+      const [profileResult, activeResult] = await Promise.all([
+        callWithRefresh((token) => getDriverProfile(token)),
+        callWithRefresh((token) => getActiveDelivery(token)),
+      ]);
+
+      if (cancelled) return;
+
       /* Profil : restaurer le statut online */
       if (profileResult.ok && profileResult.data) {
         setIsOnline(profileResult.data.isOnline);
         /* Si online, charger les courses disponibles */
         if (profileResult.data.isOnline && !activeResult.data) {
-          loadDeliveries();
+          void loadDeliveries();
         }
       } else if (!profileResult.ok) {
         setProfileMissing(true);
@@ -75,42 +114,12 @@ export default function DeliveriesPage() {
           "accepted";
         setDeliveryStep(step);
       }
-    });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authLoading]);
+    })();
 
-  const loadDeliveries = useCallback(async () => {
-    const result = await callWithRefresh((token) => getAvailableDeliveries(token));
-    if (result.ok) {
-      const data = result.data ?? [];
-      setDeliveries(data);
-      // Geocode all addresses
-      if (data.length > 0) {
-        setGeocodingLoading(true);
-        console.log(`🗺️  Geocoding ${data.length} deliveries...`);
-        try {
-          // Just pass raw address - geocodeAddress will clean it up
-          const addresses = data.map((d) => d.deliveryAddress);
-          console.log("Addresses to geocode:", addresses);
-          const coords = await geocodeBatch(addresses);
-          const geocoded = new Map<string, GeoCoord>();
-          data.forEach((d, i) => {
-            if (coords[i]) {
-              geocoded.set(d.orderId, coords[i]);
-            } else {
-              console.warn(`✗ Failed: ${d.deliveryAddress}`);
-            }
-          });
-          setGeocodedDeliveries(geocoded);
-          console.log(`✓ ${geocoded.size}/${data.length} geocoded successfully`);
-        } catch (err) {
-          console.error("Geocoding batch error:", err);
-        } finally {
-          setGeocodingLoading(false);
-        }
-      }
-    }
-  }, [callWithRefresh]);
+    return () => {
+      cancelled = true;
+    };
+  }, [authLoading]);
 
   /* ── Socket.io : courses en temps réel ── */
   useEffect(() => {
@@ -121,7 +130,7 @@ export default function DeliveriesPage() {
       setDeliveries((prev) => [delivery, ...prev]);
     });
     socket.on("delivery:taken", ({ orderId }: { orderId: string }) => {
-      setDeliveries((prev) => prev.filter((d) => d.orderId !== orderId));
+      setDeliveries((previousDeliveries) => previousDeliveries.filter((delivery) => delivery.orderId !== orderId));
     });
     return () => {
       socket.emit("driver:offline");
@@ -186,7 +195,7 @@ export default function DeliveriesPage() {
       }
     } else if (result.status === 409) {
       /* Course déjà prise par un autre livreur → la retirer de la liste */
-      setDeliveries((prev) => prev.filter((d) => d.orderId !== orderId));
+      setDeliveries((previousDeliveries) => previousDeliveries.filter((delivery) => delivery.orderId !== orderId));
       setPageError("Cette course a déjà été prise par un autre livreur.");
       setTimeout(() => setPageError(null), 4000);
     } else {
@@ -236,7 +245,7 @@ export default function DeliveriesPage() {
 
   /* ── Refuser (retirer de la liste locale) ── */
   const handleReject = (orderId: string) => {
-    setDeliveries((prev) => prev.filter((d) => d.orderId !== orderId));
+    setDeliveries((previousDeliveries) => previousDeliveries.filter((delivery) => delivery.orderId !== orderId));
   };
 
   /* ─────────────────────────────────────────────────────────────────────── */
@@ -459,13 +468,13 @@ export default function DeliveriesPage() {
               ) : geocodedDeliveries.size > 0 ? (
                 <DeliveryMap
                   deliveries={deliveries
-                    .filter((d) => geocodedDeliveries.has(d.orderId))
-                    .map((d) => ({
-                      orderId: d.orderId,
-                      coord: geocodedDeliveries.get(d.orderId)!,
-                      restaurantName: d.restaurantName,
-                      deliveryAddress: d.deliveryAddress,
-                      total: d.total,
+                    .filter((delivery) => geocodedDeliveries.has(delivery.orderId))
+                    .map((delivery) => ({
+                      orderId: delivery.orderId,
+                      coord: geocodedDeliveries.get(delivery.orderId)!,
+                      restaurantName: delivery.restaurantName,
+                      deliveryAddress: delivery.deliveryAddress,
+                      total: delivery.total,
                     }))}
                   onMarkerClick={(orderId) => {
                     // Scroll to delivery item or highlight it
@@ -476,7 +485,7 @@ export default function DeliveriesPage() {
                 />
               ) : (
                 <div className="w-full h-96 bg-slate-50 rounded-2xl flex items-center justify-center text-slate-400 text-sm border border-slate-200">
-                  Impossible de charger la carte (pas d'accès internet?)
+                  Impossible de charger la carte (pas d&apos;accès internet?)
                 </div>
               )}
             </div>
@@ -488,7 +497,7 @@ export default function DeliveriesPage() {
             <div className="bg-white rounded-2xl border border-dashed border-slate-200 p-10 text-center">
               <div className="flex justify-center mb-2 text-slate-300"><IconBicycle className="h-10 w-10" /></div>
               <p className="text-slate-400 text-sm">Aucune course disponible pour le moment.</p>
-              <p className="text-slate-300 text-xs mt-1">Vous serez notifié dès qu'une commande arrive.</p>
+              <p className="text-slate-300 text-xs mt-1">Vous serez notifié dès qu&apos;une commande arrive.</p>
             </div>
           ) : (
             <div className="space-y-3">

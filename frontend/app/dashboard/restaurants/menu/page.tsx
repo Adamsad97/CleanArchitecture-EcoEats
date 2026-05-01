@@ -276,13 +276,13 @@ export default function MenuManagementPage() {
               <p className="text-xs font-bold uppercase tracking-widest text-orange-500">Nouveau plat</p>
               <div className="grid grid-cols-2 gap-3">
                 <input className="rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-900 col-span-2 focus:outline-none focus:ring-2 focus:ring-orange-400"
-                  placeholder="Nom du plat *" value={newItem.name} onChange={(e) => setNewItem((f) => ({ ...f, name: e.target.value }))} />
+                  placeholder="Nom du plat *" value={newItem.name} onChange={(e) => setNewItem((newItemForm) => ({ ...newItemForm, name: e.target.value }))} />
                 <input className="rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-900 col-span-2 focus:outline-none focus:ring-2 focus:ring-orange-400"
-                  placeholder="Description" value={newItem.description} onChange={(e) => setNewItem((f) => ({ ...f, description: e.target.value }))} />
+                  placeholder="Description" value={newItem.description} onChange={(e) => setNewItem((newItemForm) => ({ ...newItemForm, description: e.target.value }))} />
                 <input type="number" min="0" step="0.5" className="rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-orange-400"
-                  placeholder="Prix (€) *" value={newItem.price} onChange={(e) => setNewItem((f) => ({ ...f, price: e.target.value }))} />
+                  placeholder="Prix (€) *" value={newItem.price} onChange={(e) => setNewItem((newItemForm) => ({ ...newItemForm, price: e.target.value }))} />
                 <input type="number" min="0" className="rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-orange-400"
-                  placeholder="Stock jour (vide = illimité)" value={newItem.dailyStock} onChange={(e) => setNewItem((f) => ({ ...f, dailyStock: e.target.value }))} />
+                  placeholder="Stock jour (vide = illimité)" value={newItem.dailyStock} onChange={(e) => setNewItem((newItemForm) => ({ ...newItemForm, dailyStock: e.target.value }))} />
               </div>
               <div className="flex gap-3">
                 <button type="button" onClick={() => handleAddItem(category.id)}
@@ -305,12 +305,12 @@ export default function MenuManagementPage() {
                       <div className="space-y-3">
                         <div className="grid grid-cols-2 gap-3">
                           <input className="rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-900 col-span-2 focus:outline-none focus:ring-2 focus:ring-orange-400"
-                            value={editItemForm.name ?? item.name} onChange={(e) => setEditItemForm((f) => ({ ...f, name: e.target.value }))} />
+                            value={editItemForm.name ?? item.name} onChange={(e) => setEditItemForm((editForm) => ({ ...editForm, name: e.target.value }))} />
                           <input className="rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-900 col-span-2 focus:outline-none focus:ring-2 focus:ring-orange-400"
                             placeholder="Description" value={editItemForm.description ?? item.description ?? ""}
-                            onChange={(e) => setEditItemForm((f) => ({ ...f, description: e.target.value }))} />
+                            onChange={(e) => setEditItemForm((editForm) => ({ ...editForm, description: e.target.value }))} />
                           <input type="number" min="0" step="0.5" className="rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-orange-400"
-                            value={editItemForm.price ?? item.price} onChange={(e) => setEditItemForm((f) => ({ ...f, price: parseFloat(e.target.value) }))} />
+                            value={editItemForm.price ?? item.price} onChange={(e) => setEditItemForm((editForm) => ({ ...editForm, price: parseFloat(e.target.value) }))} />
                         </div>
                         <div className="flex gap-3">
                           <button type="button" onClick={() => handleSaveEditItem(category.id)}
@@ -356,7 +356,7 @@ export default function MenuManagementPage() {
                                   <span className="font-semibold text-slate-700">{option.name}</span>
                                   {option.isRequired && <span className="text-red-400 ml-1">*</span>}
                                   <span className="text-slate-400 ml-1">
-                                    ({option.values.map((v) => v.extraPrice > 0 ? `${v.label} +${v.extraPrice.toFixed(2)}€` : v.label).join(", ")})
+                                    ({option.values.map((value) => value.extraPrice > 0 ? `${value.label} +${value.extraPrice.toFixed(2)}€` : value.label).join(", ")})
                                   </span>
                                 </div>
                               ))}

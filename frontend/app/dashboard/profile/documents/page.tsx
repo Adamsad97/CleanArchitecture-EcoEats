@@ -64,7 +64,8 @@ export default function DocumentsProfilePage() {
 
   useEffect(() => {
     if (!tokens?.accessToken) return;
-    loadDocuments(tokens.accessToken);
+    const timer = setTimeout(() => { void loadDocuments(tokens.accessToken); }, 0);
+    return () => clearTimeout(timer);
   }, [tokens]);
 
   // Rechargement automatique quand un document est validé ou refusé en temps réel
@@ -74,7 +75,9 @@ export default function DocumentsProfilePage() {
     if (latest.type !== "document_validated" && latest.type !== "document_rejected") return;
 
     const token = tokens?.accessToken ?? getStoredAccessToken();
-    if (token) loadDocuments(token);
+    if (!token) return;
+    const timer = setTimeout(() => { void loadDocuments(token); }, 0);
+    return () => clearTimeout(timer);
   }, [history]);
 
   const handleReplace = async (type: DocumentType, file: File) => {

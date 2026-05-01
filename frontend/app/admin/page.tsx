@@ -46,7 +46,7 @@ export default function AdminDashboardPage() {
     <div className="max-w-3xl space-y-8">
       <div>
         <h1 className="text-2xl font-black text-slate-900">Tableau de bord</h1>
-        <p className="text-slate-500 text-sm mt-1">Vue d'ensemble de la plateforme EcoEats</p>
+        <p className="text-slate-500 text-sm mt-1">Vue d&apos;ensemble de la plateforme EcoEats</p>
       </div>
 
       {/* Dossiers */}

@@ -102,7 +102,7 @@ const REQUIRED_DOCS_OWNER = ["kbis", "id_card", "food_hygiene"] as const;
 function AccountPendingScreen({ documents }: { documents: DocumentRecord[] }) {
   const getLatest = (type: string) =>
     documents.filter((doc) => doc.type === type)
-      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
+      .sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime())[0];
 
   const statusLabel: Record<string, { label: string; color: string }> = {
     approved: { label: "✓ Validé",           color: "text-emerald-700 bg-emerald-100" },
@@ -374,35 +374,35 @@ export default function RestaurantsPage() {
                   <div className="col-span-2">
                     <label className="block text-xs font-semibold text-slate-500 mb-1">Nom</label>
                     <input type="text" value={editProfileForm.name ?? ""}
-                      onChange={(e) => setEditProfileForm((f) => ({ ...f, name: e.target.value }))}
+                      onChange={(e) => setEditProfileForm((profileForm) => ({ ...profileForm, name: e.target.value }))}
                       className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-300 focus:outline-none focus:ring-2 focus:ring-orange-400"
                     />
                   </div>
                   <div className="col-span-2">
                     <label className="block text-xs font-semibold text-slate-500 mb-1">Adresse</label>
                     <input type="text" value={editProfileForm.address ?? ""}
-                      onChange={(e) => setEditProfileForm((f) => ({ ...f, address: e.target.value }))}
+                      onChange={(e) => setEditProfileForm((profileForm) => ({ ...profileForm, address: e.target.value }))}
                       className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-300 focus:outline-none focus:ring-2 focus:ring-orange-400"
                     />
                   </div>
                   <div>
                     <label className="block text-xs font-semibold text-slate-500 mb-1">Cuisine</label>
                     <input type="text" value={editProfileForm.cuisineType ?? ""}
-                      onChange={(e) => setEditProfileForm((f) => ({ ...f, cuisineType: e.target.value }))}
+                      onChange={(e) => setEditProfileForm((profileForm) => ({ ...profileForm, cuisineType: e.target.value }))}
                       className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-300 focus:outline-none focus:ring-2 focus:ring-orange-400"
                     />
                   </div>
                   <div>
                     <label className="block text-xs font-semibold text-slate-500 mb-1">Préparation (min)</label>
                     <input type="number" min={5} value={editProfileForm.prepTimeMin ?? 30}
-                      onChange={(e) => setEditProfileForm((f) => ({ ...f, prepTimeMin: Number(e.target.value) }))}
+                      onChange={(e) => setEditProfileForm((profileForm) => ({ ...profileForm, prepTimeMin: Number(e.target.value) }))}
                       className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-300 focus:outline-none focus:ring-2 focus:ring-orange-400"
                     />
                   </div>
                   <div>
                     <label className="block text-xs font-semibold text-slate-500 mb-1">Frais livraison (€)</label>
                     <input type="number" min={0} step={0.5} value={editProfileForm.deliveryFee ?? 0}
-                      onChange={(e) => setEditProfileForm((f) => ({ ...f, deliveryFee: Number(e.target.value) }))}
+                      onChange={(e) => setEditProfileForm((profileForm) => ({ ...profileForm, deliveryFee: Number(e.target.value) }))}
                       className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-300 focus:outline-none focus:ring-2 focus:ring-orange-400"
                     />
                   </div>

@@ -137,7 +137,7 @@ function DomicileSection() {
       {/* ── Ligne principale ── */}
       <button
         type="button"
-        onClick={() => setExpanded((v) => !v)}
+        onClick={() => setExpanded((isExpanded) => !isExpanded)}
         className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-base font-medium text-slate-700 hover:bg-slate-50 transition"
       >
         <span className="text-slate-500 shrink-0">

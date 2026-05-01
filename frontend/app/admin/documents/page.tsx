@@ -209,9 +209,9 @@ export default function AdminDocumentsPage() {
 
   useEffect(() => {
     let isMounted = true;
-    setLoading(true);
 
     const loadDocuments = async () => {
+      setLoading(true);
       if (!tokens?.accessToken) { if (isMounted) setLoading(false); return; }
 
       const result = await executeWithRefresh((token) => getDocumentsByStatus(activeTab, token));

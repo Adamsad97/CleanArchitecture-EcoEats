@@ -8,6 +8,26 @@ import type { OrderSummary } from "../services/orderService";
 
 const STORAGE_KEY = "ecoeats_cart";
 
+const loadPersistedCart = (): PersistedData => {
+  if (typeof window === "undefined") return DEFAULT_PERSISTED;
+
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (!stored) return DEFAULT_PERSISTED;
+
+    const parsed = JSON.parse(stored) as Partial<PersistedData>;
+    return {
+      cart: Array.isArray(parsed.cart) ? parsed.cart : [],
+      restaurant: parsed.restaurant ?? null,
+      deliveryStreet: parsed.deliveryStreet ?? "",
+      deliveryPostalCode: parsed.deliveryPostalCode ?? "",
+      deliveryCity: parsed.deliveryCity ?? "",
+    };
+  } catch {
+    return DEFAULT_PERSISTED;
+  }
+};
+
 type PendingEntry = { entry: Omit<CartEntry, "cartId">; restaurant: RestaurantDto };
 
 type CartContextValue = {
@@ -51,12 +71,11 @@ const DEFAULT_PERSISTED: PersistedData = {
 
 export function CartProvider({ children }: { children: React.ReactNode }) {
   /* Un seul useState pour toutes les données persistées → 1 seul re-render à l'hydration */
-  const [persisted,    setPersisted]    = useState<PersistedData>(DEFAULT_PERSISTED);
-  const [showCart,     setShowCart]     = useState(false);
+  const [persisted, setPersisted] = useState<PersistedData>(loadPersistedCart);
+  const [showCart, setShowCart] = useState(false);
   const [showCheckout, setShowCheckout] = useState(false);
   const [orderSuccess, setOrderSuccess] = useState<OrderSummary | null>(null);
   const [pendingEntry, setPendingEntry] = useState<PendingEntry | null>(null);
-  const [hydrated,     setHydrated]     = useState(false);
 
   const { cart, restaurant, deliveryStreet, deliveryPostalCode, deliveryCity } = persisted;
 
@@ -65,29 +84,10 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => { cartRef.current       = cart;       }, [cart]);
   useEffect(() => { restaurantRef.current = restaurant; }, [restaurant]);
 
-  /* ── Restauration depuis localStorage — 1 seul setState ── */
-  useEffect(() => {
-    try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        const parsed = JSON.parse(stored) as Partial<PersistedData>;
-        setPersisted({
-          cart:               Array.isArray(parsed.cart) ? parsed.cart : [],
-          restaurant:         parsed.restaurant ?? null,
-          deliveryStreet:     parsed.deliveryStreet     ?? "",
-          deliveryPostalCode: parsed.deliveryPostalCode ?? "",
-          deliveryCity:       parsed.deliveryCity       ?? "",
-        });
-      }
-    } catch { /* ignore */ }
-    setHydrated(true);
-  }, []);
-
   /* ── Persistance ── */
   useEffect(() => {
-    if (!hydrated) return;
     localStorage.setItem(STORAGE_KEY, JSON.stringify(persisted));
-  }, [persisted, hydrated]);
+  }, [persisted]);
 
   const cartTotal = cart.reduce((sum, e) => sum + cartEntryTotal(e), 0);
   const cartCount = cart.reduce((sum, e) => sum + e.quantity,        0);
@@ -99,28 +99,31 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       setPendingEntry({ entry, restaurant: rest });
       return;
     }
-    setPersisted((p) => ({
-      ...p,
+    setPersisted((persistedData) => ({
+      ...persistedData,
       restaurant: rest,
-      cart: [...p.cart, { ...entry, cartId: `${Date.now()}-${Math.random()}` }],
+      cart: [...persistedData.cart, { ...entry, cartId: `${Date.now()}-${Math.random()}` }],
     }));
   }, []);
 
   const removeFromCart = useCallback((cartId: string) => {
-    setPersisted((p) => ({ ...p, cart: p.cart.filter((e) => e.cartId !== cartId) }));
+    setPersisted((persistedData) => ({
+      ...persistedData,
+      cart: persistedData.cart.filter((cartEntry) => cartEntry.cartId !== cartId),
+    }));
   }, []);
 
   const updateQuantity = useCallback((cartId: string, qty: number) => {
-    setPersisted((p) => ({
-      ...p,
+    setPersisted((persistedData) => ({
+      ...persistedData,
       cart: qty <= 0
-        ? p.cart.filter((e) => e.cartId !== cartId)
-        : p.cart.map((e) => e.cartId === cartId ? { ...e, quantity: qty } : e),
+        ? persistedData.cart.filter((cartEntry) => cartEntry.cartId !== cartId)
+        : persistedData.cart.map((cartEntry) => cartEntry.cartId === cartId ? { ...cartEntry, quantity: qty } : cartEntry),
     }));
   }, []);
 
   const setDeliveryAddress = useCallback((street: string, postalCode: string, city: string) => {
-    setPersisted((p) => ({ ...p, deliveryStreet: street, deliveryPostalCode: postalCode, deliveryCity: city }));
+    setPersisted((persistedData) => ({ ...persistedData, deliveryStreet: street, deliveryPostalCode: postalCode, deliveryCity: city }));
   }, []);
 
   const clearCart = useCallback(() => {
@@ -139,8 +142,8 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
   const confirmReplace = useCallback(() => {
     if (!pendingEntry) return;
-    setPersisted((p) => ({
-      ...p,
+    setPersisted((persistedData) => ({
+      ...persistedData,
       restaurant: pendingEntry.restaurant,
       cart: [{ ...pendingEntry.entry, cartId: `${Date.now()}-${Math.random()}` }],
     }));
@@ -166,7 +169,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
           <div className="relative z-10 bg-white rounded-2xl p-6 w-full max-w-sm shadow-2xl space-y-4">
             <p className="text-base font-black text-slate-900">Nouveau restaurant</p>
             <p className="text-sm text-slate-600">
-              Votre panier contient des articles d'un autre restaurant. Voulez-vous vider le panier et commander chez <span className="font-bold">{pendingEntry.restaurant.name}</span> ?
+              Votre panier contient des articles d&apos;un autre restaurant. Voulez-vous vider le panier et commander chez <span className="font-bold">{pendingEntry.restaurant.name}</span> ?
             </p>
             <div className="flex gap-3">
               <button type="button" onClick={cancelReplace}

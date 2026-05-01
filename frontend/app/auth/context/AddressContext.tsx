@@ -4,6 +4,25 @@ import { createContext, useContext, useEffect, useState, useCallback } from "rea
 
 const STORAGE_KEY = "ecoeats_addresses";
 
+const loadStoredAddresses = (): { addresses: SavedAddress[]; activeId: string | null } => {
+  if (typeof window === "undefined") return { addresses: [], activeId: null };
+
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (!stored) return { addresses: [], activeId: null };
+
+    const parsed = JSON.parse(stored) as SavedAddress[];
+    if (!Array.isArray(parsed) || parsed.length === 0) return { addresses: [], activeId: null };
+
+    return {
+      addresses: parsed,
+      activeId: parsed.find((address) => address.isDefault)?.id ?? parsed[0].id,
+    };
+  } catch {
+    return { addresses: [], activeId: null };
+  }
+};
+
 export type SavedAddress = {
   id:         string;
   label:      string;
@@ -24,33 +43,16 @@ type AddressContextValue = {
 const AddressContext = createContext<AddressContextValue | null>(null);
 
 export function AddressProvider({ children }: { children: React.ReactNode }) {
-  const [addresses,  setAddresses]  = useState<SavedAddress[]>([]);
-  const [activeId,   setActiveId]   = useState<string | null>(null);
-  const [hydrated,   setHydrated]   = useState(false);
-
-  /* ── Chargement depuis localStorage ── */
-  useEffect(() => {
-    try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        const parsed: SavedAddress[] = JSON.parse(stored);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          setAddresses(parsed);
-          /* L'adresse active par défaut est toujours la première (isDefault) */
-          setActiveId(parsed.find((a) => a.isDefault)?.id ?? parsed[0].id);
-        }
-      }
-    } catch { /* ignore */ }
-    setHydrated(true);
-  }, []);
+  const initialState = loadStoredAddresses();
+  const [addresses, setAddresses] = useState<SavedAddress[]>(initialState.addresses);
+  const [activeId, setActiveId] = useState<string | null>(initialState.activeId);
 
   /* ── Persistance ── */
   useEffect(() => {
-    if (!hydrated) return;
     localStorage.setItem(STORAGE_KEY, JSON.stringify(addresses));
-  }, [addresses, hydrated]);
+  }, [addresses]);
 
-  const activeAddress = addresses.find((a) => a.id === activeId) ?? addresses[0] ?? null;
+  const activeAddress = addresses.find((address) => address.id === activeId) ?? addresses[0] ?? null;
 
   const addAddress = useCallback((label: string, street: string, postalCode: string, city: string) => {
     const newAddr: SavedAddress = {
@@ -61,20 +63,20 @@ export function AddressProvider({ children }: { children: React.ReactNode }) {
       city:       city.trim(),
       isDefault:  false,
     };
-    setAddresses((prev) => {
+    setAddresses((previousAddresses) => {
       /* La première adresse ajoutée devient la principale */
-      if (prev.length === 0) newAddr.isDefault = true;
-      const updated = [...prev, newAddr];
+      if (previousAddresses.length === 0) newAddr.isDefault = true;
+      const updated = [...previousAddresses, newAddr];
       return updated;
     });
     setActiveId(newAddr.id);
   }, []);
 
   const removeAddress = useCallback((id: string) => {
-    setAddresses((prev) => {
-      const updated = prev.filter((a) => a.id !== id);
+    setAddresses((previousAddresses) => {
+      const updated = previousAddresses.filter((address) => address.id !== id);
       /* Si on supprime la principale, la nouvelle première devient principale */
-      if (updated.length > 0 && !updated.some((a) => a.isDefault)) {
+      if (updated.length > 0 && !updated.some((address) => address.isDefault)) {
         updated[0] = { ...updated[0], isDefault: true };
       }
       return updated;

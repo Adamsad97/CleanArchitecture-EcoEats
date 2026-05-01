@@ -10,7 +10,7 @@ import type { RestaurantDto } from "../../auth/services/restaurantService";
 
 export function ClientDashboard({ userName }: { userName: string }) {
   const [restaurants, setRestaurants] = useState<RestaurantDto[]>([]);
-  const [loading,     setLoading]     = useState(true);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     getActiveRestaurants().then((result) => {
@@ -23,13 +23,13 @@ export function ClientDashboard({ userName }: { userName: string }) {
     <div className="max-w-2xl space-y-6 mx-auto">
       <div>
         <p className="text-2xl font-black text-slate-900">Bonjour, {userName.split(" ")[0]}</p>
-        <p className="text-slate-500 text-sm mt-1">Que voulez-vous manger aujourd'hui ?</p>
+        <p className="text-slate-500 text-sm mt-1">Que voulez-vous manger aujourd&apos;hui ?</p>
       </div>
 
       {loading ? (
         <div className="grid grid-cols-2 gap-4">
-          {[1,2,3,4].map((s) => (
-            <div key={s} className="rounded-2xl bg-slate-100 animate-pulse">
+          {[1, 2, 3, 4].map((slot) => (
+            <div key={slot} className="rounded-2xl bg-slate-100 animate-pulse">
               <div className="h-36 rounded-t-2xl bg-slate-200" />
               <div className="p-3 space-y-2">
                 <div className="h-3 bg-slate-200 rounded w-3/4" />

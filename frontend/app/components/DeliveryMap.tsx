@@ -124,7 +124,7 @@ export default function DeliveryMap({
       try {
         // Remove old markers not in deliveries
         markersRef.current.forEach((marker, orderId) => {
-          if (!deliveries.some((d) => d.orderId === orderId)) {
+          if (!deliveries.some((delivery) => delivery.orderId === orderId)) {
             marker.remove();
             markersRef.current.delete(orderId);
           }
@@ -142,13 +142,13 @@ export default function DeliveryMap({
             .setLngLat([delivery.coord.lng, delivery.coord.lat])
             .addTo(map);
 
-          el.addEventListener("click", (e) => {
-            e.stopPropagation();
+          el.addEventListener("click", (event) => {
+            event.stopPropagation();
             console.log("Marker clicked:", delivery.orderId);
             onMarkerClick?.(delivery.orderId);
 
             // Close all other popups first
-            document.querySelectorAll(".maplibregl-popup").forEach((p) => p.remove());
+            document.querySelectorAll(".maplibregl-popup").forEach((popupElement) => popupElement.remove());
 
             // Create popup with inline styles
             const popupContent = `

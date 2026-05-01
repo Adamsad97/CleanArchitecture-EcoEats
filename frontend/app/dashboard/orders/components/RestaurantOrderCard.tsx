@@ -83,8 +83,8 @@ export function RestaurantOrderCard({
   const isClosed    = ["delivered", "cancelled"].includes(order.status);
   const st          = STATUS_CONFIG[order.status] ?? STATUS_CONFIG.created;
 
-  const totalQty    = order.items.reduce((s, i) => s + i.quantity, 0);
-  const itemsSummary = order.items.slice(0, 2).map((i) => `${i.name} ×${i.quantity}`).join(", ")
+  const totalQty = order.items.reduce((sum, item) => sum + item.quantity, 0);
+  const itemsSummary = order.items.slice(0, 2).map((item) => `${item.name} ×${item.quantity}`).join(", ")
     + (order.items.length > 2 ? ` +${order.items.length - 2}` : "");
 
   const handle = async (newStatus: string) => {
@@ -112,7 +112,7 @@ export function RestaurantOrderCard({
           )}
 
           {/* En-tête cliquable */}
-          <button type="button" onClick={() => setOpen((v) => !v)}
+          <button type="button" onClick={() => setOpen((isOpen) => !isOpen)}
             className="w-full text-left px-5 py-4 hover:bg-slate-50/60 transition">
             <div className="flex items-start justify-between gap-3">
 
@@ -172,7 +172,7 @@ export function RestaurantOrderCard({
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-semibold text-slate-900">{item.name}</p>
                         <p className="text-xs text-slate-400">× {item.quantity} · {item.unitPrice.toFixed(2)} € / unité</p>
-                        {item.notes && <p className="text-xs text-slate-400 italic mt-0.5">"{item.notes}"</p>}
+                        {item.notes && <p className="text-xs text-slate-400 italic mt-0.5">&quot;{item.notes}&quot;</p>}
                       </div>
                       <p className="text-sm font-black text-slate-900 shrink-0">{(item.unitPrice * item.quantity).toFixed(2)} €</p>
                     </div>

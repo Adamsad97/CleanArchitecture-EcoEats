@@ -35,19 +35,39 @@ export default function OrdersPage() {
 
   useEffect(() => {
     if (authLoading) return;
-    fetchOrders();
-  }, [authLoading, fetchOrders]);
+
+    let cancelled = false;
+
+    void (async () => {
+      if (isRestaurant) {
+        const result = await callWithRefresh((token) => getRestaurantOrders(token));
+        if (cancelled) return;
+        if (result.ok && result.data) setRestaurantOrders(result.data);
+        else setError(result.message ?? "Impossible de charger les commandes.");
+      } else {
+        const result = await callWithRefresh((token) => getOrders(token));
+        if (cancelled) return;
+        if (result.ok && result.data) setClientOrders(result.data);
+        else setError(result.message ?? "Impossible de charger les commandes.");
+      }
+      if (!cancelled) setLoading(false);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [authLoading, isRestaurant, callWithRefresh]);
 
   useEffect(() => {
     if (authLoading || !tokens?.accessToken) return;
     const socket = connectSocket(tokens.accessToken);
     if (!isRestaurant) {
-      socket.on("order:update", (u: { orderId: string; status: string; hasDriver: boolean }) => {
-        setClientOrders((prev) => prev.map((o) => o.id === u.orderId ? { ...o, status: u.status, hasDriver: u.hasDriver } : o));
+      socket.on("order:update", (update: { orderId: string; status: string; hasDriver: boolean }) => {
+        setClientOrders((previousOrders) => previousOrders.map((order) => order.id === update.orderId ? { ...order, status: update.status, hasDriver: update.hasDriver } : order));
       });
     } else {
-      socket.on("order:restaurant_update", (u: { orderId: string }) => {
-        setRestaurantOrders((prev) => prev.map((o) => o.id === u.orderId ? { ...o, hasDriver: true } : o));
+      socket.on("order:restaurant_update", (update: { orderId: string }) => {
+        setRestaurantOrders((previousOrders) => previousOrders.map((order) => order.id === update.orderId ? { ...order, hasDriver: true } : order));
       });
     }
     return () => { socket.off("order:update"); socket.off("order:restaurant_update"); };
@@ -78,16 +98,16 @@ export default function OrdersPage() {
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-12 text-center">
           <div className="flex justify-center text-slate-200 mb-2"><IconPackage className="h-12 w-12" /></div>
           <h2 className="text-xl font-bold text-slate-900 mt-2">Aucune commande</h2>
-          <p className="text-slate-500 text-sm mt-2">Vous n'avez pas encore passé de commande.</p>
+          <p className="text-slate-500 text-sm mt-2">Vous n&apos;avez pas encore passé de commande.</p>
         </div>
       </div>
     );
-    return <div className="max-w-2xl mx-auto space-y-3">{clientOrders.map((o) => <ClientOrderCard key={o.id} order={o} />)}</div>;
+    return <div className="max-w-2xl mx-auto space-y-3">{clientOrders.map((order) => <ClientOrderCard key={order.id} order={order} />)}</div>;
   }
 
-  const newOrders    = restaurantOrders.filter((o) => o.status === "created");
-  const activeOrders = restaurantOrders.filter((o) => o.status === "confirmed");
-  const closedOrders = restaurantOrders.filter((o) => !["created", "confirmed"].includes(o.status));
+  const newOrders    = restaurantOrders.filter((order) => order.status === "created");
+  const activeOrders = restaurantOrders.filter((order) => order.status === "confirmed");
+  const closedOrders = restaurantOrders.filter((order) => !["created", "confirmed"].includes(order.status));
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
@@ -101,19 +121,19 @@ export default function OrdersPage() {
       {newOrders.length > 0 && (
         <section>
           <p className="text-xs font-bold uppercase tracking-widest text-orange-500 mb-3">Nouvelles commandes ({newOrders.length})</p>
-          <div className="space-y-3">{newOrders.map((o) => <RestaurantOrderCard key={o.id} order={o} onStatusChange={handleStatusChange} />)}</div>
+          <div className="space-y-3">{newOrders.map((order) => <RestaurantOrderCard key={order.id} order={order} onStatusChange={handleStatusChange} />)}</div>
         </section>
       )}
       {activeOrders.length > 0 && (
         <section>
           <p className="text-xs font-bold uppercase tracking-widest text-blue-500 mb-3">En préparation ({activeOrders.length})</p>
-          <div className="space-y-3">{activeOrders.map((o) => <RestaurantOrderCard key={o.id} order={o} onStatusChange={handleStatusChange} />)}</div>
+          <div className="space-y-3">{activeOrders.map((order) => <RestaurantOrderCard key={order.id} order={order} onStatusChange={handleStatusChange} />)}</div>
         </section>
       )}
       {closedOrders.length > 0 && (
         <section>
           <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-3">Historique</p>
-          <div className="space-y-3">{closedOrders.map((o) => <RestaurantOrderCard key={o.id} order={o} onStatusChange={handleStatusChange} />)}</div>
+          <div className="space-y-3">{closedOrders.map((order) => <RestaurantOrderCard key={order.id} order={order} onStatusChange={handleStatusChange} />)}</div>
         </section>
       )}
     </div>

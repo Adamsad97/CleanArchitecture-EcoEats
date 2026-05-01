@@ -78,10 +78,10 @@ export function GlobalCartSidebar() {
                     </div>
                     {entry.selectedOptions.length > 0 && (
                       <p className="text-xs text-slate-400 mt-0.5 leading-snug">
-                        {entry.selectedOptions.map((o) => o.valueName).join(", ")}
+                        {entry.selectedOptions.map((option) => option.valueName).join(", ")}
                       </p>
                     )}
-                    {entry.notes && <p className="text-xs text-slate-400 italic mt-0.5">"{entry.notes}"</p>}
+                    {entry.notes && <p className="text-xs text-slate-400 italic mt-0.5">&quot;{entry.notes}&quot;</p>}
                     <div className="flex items-center justify-between mt-2">
                       <div className="flex items-center gap-2">
                         <button type="button" onClick={() => updateQuantity(entry.cartId, entry.quantity - 1)}

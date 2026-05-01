@@ -59,19 +59,23 @@ export function CheckoutModal({
   /* ── Chargement des cartes à l'entrée de l'étape paiement ── */
   useEffect(() => {
     if (step !== "payment" || !accessToken) return;
-    setLoadingCards(true);
-    getSavedPaymentMethods(accessToken).then((result) => {
-      const list = result.ok && Array.isArray(result.data) ? result.data : [];
-      if (list.length === 0) {
-        onClose();
-        router.push("/dashboard/account/payment-methods");
-        return;
-      }
-      setCards(list);
-      const defaultCard = list.find((c) => c.isDefault) ?? list[0];
-      if (defaultCard) setSelectedCardId(defaultCard.id);
-      setLoadingCards(false);
-    });
+    const timer = setTimeout(() => {
+      void (async () => {
+        setLoadingCards(true);
+        const result = await getSavedPaymentMethods(accessToken);
+        const list = result.ok && Array.isArray(result.data) ? result.data : [];
+        if (list.length === 0) {
+          onClose();
+          router.push("/dashboard/account/payment-methods");
+          return;
+        }
+        setCards(list);
+        const defaultCard = list.find((card) => card.isDefault) ?? list[0];
+        if (defaultCard) setSelectedCardId(defaultCard.id);
+        setLoadingCards(false);
+      })();
+    }, 0);
+    return () => clearTimeout(timer);
   }, [step, accessToken]);
 
   /* ── Étape 1 : valider l'adresse et passer à l'étape paiement ── */
@@ -102,10 +106,10 @@ export function CheckoutModal({
         items:          cart.map((entry) => ({
           menuItemId:     entry.item.id,
           name:           entry.item.name,
-          unitPrice:      entry.item.price + entry.selectedOptions.reduce((s, o) => s + o.extraPrice, 0),
+          unitPrice:      entry.item.price + entry.selectedOptions.reduce((sum, option) => sum + option.extraPrice, 0),
           quantity:       entry.quantity,
           notes:          entry.notes || undefined,
-          optionValueIds: entry.selectedOptions.map((o) => o.valueId),
+          optionValueIds: entry.selectedOptions.map((option) => option.valueId),
         })),
       }, token)
     );
@@ -144,8 +148,8 @@ export function CheckoutModal({
 
         {/* ── Indicateur d'étapes ── */}
         <div className="flex px-5 pt-3 gap-2 shrink-0">
-          {(["address", "payment"] as Step[]).map((s, i) => (
-            <div key={s} className={`h-1 flex-1 rounded-full transition-colors ${step === s || (s === "address" && step === "payment") ? "bg-orange-500" : "bg-slate-200"}`} />
+          {(["address", "payment"] as Step[]).map((stepName) => (
+            <div key={stepName} className={`h-1 flex-1 rounded-full transition-colors ${step === stepName || (stepName === "address" && step === "payment") ? "bg-orange-500" : "bg-slate-200"}`} />
           ))}
         </div>
 

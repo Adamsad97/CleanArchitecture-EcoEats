@@ -16,7 +16,7 @@ export function ClientOrderCard({ order }: { order: OrderDetail }) {
 
   return (
     <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-      <button type="button" onClick={() => setOpen((v) => !v)}
+      <button type="button" onClick={() => setOpen((isOpen) => !isOpen)}
         className="w-full text-left px-5 py-4 flex items-center gap-4 hover:bg-slate-50 transition">
         <div className="w-12 h-12 rounded-xl overflow-hidden shrink-0 bg-slate-100 flex items-center justify-center">
           {logoUrl

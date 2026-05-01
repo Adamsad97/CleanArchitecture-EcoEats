@@ -69,13 +69,13 @@ export async function geocodeBatch(addresses: string[]): Promise<(GeoCoord | nul
  * Returns average lat/lng or fallback to Paris
  */
 export function getCenterFromCoords(coords: (GeoCoord | null)[]): GeoCoord {
-  const valid = coords.filter((c): c is GeoCoord => c !== null);
+  const valid = coords.filter((coord): coord is GeoCoord => coord !== null);
   if (valid.length === 0) {
     return { lat: 48.8566, lng: 2.3522 }; // Paris default
   }
 
-  const avgLat = valid.reduce((sum, c) => sum + c.lat, 0) / valid.length;
-  const avgLng = valid.reduce((sum, c) => sum + c.lng, 0) / valid.length;
+  const avgLat = valid.reduce((sum, coord) => sum + coord.lat, 0) / valid.length;
+  const avgLng = valid.reduce((sum, coord) => sum + coord.lng, 0) / valid.length;
 
   return { lat: avgLat, lng: avgLng };
 }

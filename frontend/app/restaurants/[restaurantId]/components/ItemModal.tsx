@@ -99,7 +99,7 @@ export function ItemModal({
 
   const extraTotal = item.options.flatMap((option) =>
     (selections[option.id] ?? []).map((valueId) => {
-      const value = option.values.find((v) => v.id === valueId);
+      const value = option.values.find((optionValue) => optionValue.id === valueId);
       return value?.extraPrice ?? 0;
     }),
   ).reduce((sum, price) => sum + price, 0);
@@ -110,7 +110,7 @@ export function ItemModal({
   const handleAdd = () => {
     const selectedOptions: SelectedOptionValue[] = item.options.flatMap((option) =>
       (selections[option.id] ?? []).flatMap((valueId) => {
-        const value = option.values.find((v) => v.id === valueId);
+        const value = option.values.find((optionValue) => optionValue.id === valueId);
         if (!value) return [];
         return [{ optionId: option.id, optionName: option.name, valueId, valueName: value.label, extraPrice: value.extraPrice }];
       }),
@@ -184,12 +184,12 @@ export function ItemModal({
 
             {/* Sélecteur de quantité */}
             <div className="flex items-center justify-center gap-6">
-              <button type="button" onClick={() => setQuantity((q) => Math.max(1, q - 1))}
+              <button type="button" onClick={() => setQuantity((quantityValue) => Math.max(1, quantityValue - 1))}
                 className="w-10 h-10 rounded-full bg-slate-200 flex items-center justify-center text-xl font-bold text-slate-900 hover:bg-slate-300 transition">
                 −
               </button>
               <span className="text-lg font-black w-8 text-center text-slate-900">{quantity}</span>
-              <button type="button" onClick={() => setQuantity((q) => q + 1)}
+              <button type="button" onClick={() => setQuantity((quantityValue) => quantityValue + 1)}
                 className="w-10 h-10 rounded-full bg-slate-900 flex items-center justify-center text-xl font-bold text-white hover:bg-slate-700 transition">
                 +
               </button>

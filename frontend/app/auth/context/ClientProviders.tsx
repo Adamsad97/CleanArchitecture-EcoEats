@@ -8,8 +8,8 @@ import { AddressProvider } from "./AddressContext";
 import { useAuth } from "./AuthContext";
 
 /* Chargement différé : ces overlays ne sont jamais nécessaires au rendu initial */
-const GlobalCartSidebar    = dynamic(() => import("../../components/GlobalCartSidebar").then((m) => ({ default: m.GlobalCartSidebar })),    { ssr: false });
-const GlobalCheckoutOverlay = dynamic(() => import("../../components/GlobalCheckoutOverlay").then((m) => ({ default: m.GlobalCheckoutOverlay })), { ssr: false });
+const GlobalCartSidebar    = dynamic(() => import("../../components/GlobalCartSidebar").then((module) => ({ default: module.GlobalCartSidebar })),    { ssr: false });
+const GlobalCheckoutOverlay = dynamic(() => import("../../components/GlobalCheckoutOverlay").then((module) => ({ default: module.GlobalCheckoutOverlay })), { ssr: false });
 
 function NotificationBridge({ children }: { children: React.ReactNode }) {
   const { tokens, user } = useAuth();

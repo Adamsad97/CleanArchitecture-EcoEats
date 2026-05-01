@@ -32,14 +32,14 @@ export function CartSidebar({
                     {cartEntryTotal(entry).toFixed(2)} €
                   </p>
                 </div>
-                <p className="text-xs text-slate-400 mt-0.5">× {entry.quantity}</p>
+                  <p className="text-xs text-slate-400 mt-0.5">× {entry.quantity}</p>
                 {entry.selectedOptions.length > 0 && (
                   <p className="text-xs text-slate-500 mt-1">
-                    {entry.selectedOptions.map((opt) => opt.valueName).join(", ")}
+                    {entry.selectedOptions.map((option) => option.valueName).join(", ")}
                   </p>
                 )}
                 {entry.notes && (
-                  <p className="text-xs text-slate-400 italic mt-0.5">"{entry.notes}"</p>
+                  <p className="text-xs text-slate-400 italic mt-0.5">&quot;{entry.notes}&quot;</p>
                 )}
               </div>
               <button type="button" onClick={() => onRemove(entry.cartId)}

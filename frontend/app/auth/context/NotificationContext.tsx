@@ -29,8 +29,8 @@ const loadHistory = (userId: string): NotificationRecord[] => {
     if (!raw) return [];
     const cutoff = Date.now() - MAX_AGE_MS;
     return (JSON.parse(raw) as NotificationRecord[])
-      .map((n) => ({ ...n, receivedAt: new Date(n.receivedAt) }))
-      .filter((n) => n.receivedAt.getTime() > cutoff);
+      .map((notification) => ({ ...notification, receivedAt: new Date(notification.receivedAt) }))
+      .filter((notification) => notification.receivedAt.getTime() > cutoff);
   } catch {
     return [];
   }
@@ -57,16 +57,18 @@ export const NotificationProvider = ({
   accessToken: string | null;
   userId:      string | null;
 }) => {
-  const [history, setHistory] = useState<NotificationRecord[]>(() =>
-    userId ? loadHistory(userId) : [],
-  );
-  const [toasts,  setToasts]  = useState<NotificationRecord[]>([]);
+  const [history, setHistory] = useState<NotificationRecord[]>(() => userId ? loadHistory(userId) : []);
+  const [toasts, setToasts] = useState<NotificationRecord[]>([]);
   const timersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
   // Recharge l'historique quand l'utilisateur change de compte
   useEffect(() => {
-    setHistory(userId ? loadHistory(userId) : []);
-    setToasts([]);
+    const timer = setTimeout(() => {
+      setHistory(userId ? loadHistory(userId) : []);
+      setToasts([]);
+    }, 0);
+
+    return () => clearTimeout(timer);
   }, [userId]);
 
   const dismissToast = useCallback((id: string) => {
@@ -94,7 +96,7 @@ export const NotificationProvider = ({
 
     setHistory((previous) => {
       const cutoff = Date.now() - MAX_AGE_MS;
-      const updated = [record, ...previous.filter((n) => n.receivedAt.getTime() > cutoff)];
+      const updated = [record, ...previous.filter((notification) => notification.receivedAt.getTime() > cutoff)];
       if (userId) saveHistory(userId, updated);
       return updated;
     });
@@ -112,7 +114,7 @@ export const NotificationProvider = ({
     if (!accessToken) return;
 
     const handler = (payload: NotificationPayload) => addNotificationRef.current(payload);
-    const socket  = connectSocket(accessToken);
+    const socket = connectSocket(accessToken);
     socket.on("notification", handler);
 
     return () => { socket.off("notification", handler); };
