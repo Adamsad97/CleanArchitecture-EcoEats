@@ -5,6 +5,8 @@ export type DriverProfile = {
   transportType: "bike" | "scooter" | "car";
   isOnline:      boolean;
   isVerified:    boolean;
+  /** Statut Expert : peut cumuler 2 livraisons du même restaurant simultanément. */
+  isExpert:      boolean;
 };
 
 export type AvailableDelivery = {

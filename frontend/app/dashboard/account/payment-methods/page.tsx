@@ -6,6 +6,7 @@ import { useAuth } from "../../../auth/context/AuthContext";
 import { getStoredAccessToken } from "../../../auth/services/tokenHelper";
 import { getStripe } from "../../../auth/services/payment/stripeClient";
 import { createSetupIntent } from "../../../auth/services/payment/paymentIntentService";
+import { refreshService } from "../../../auth/services/refreshService";
 import type { ApiResult } from "../../../auth/types";
 import {
   getSavedPaymentMethods,
@@ -117,7 +118,12 @@ export default function PaymentMethodsPage() {
 
     let result = await request(currentAccessToken);
     if (!result.ok && result.status === 401) {
-      const refreshed = await refresh();
+      const storedRefreshToken = typeof window !== "undefined"
+        ? localStorage.getItem("refreshToken")
+        : null;
+      if (!storedRefreshToken) return result;
+
+      const refreshed = await refreshService(storedRefreshToken);
       if (!refreshed) return result;
 
       const refreshedAccessToken = getStoredAccessToken();
@@ -126,7 +132,7 @@ export default function PaymentMethodsPage() {
     }
 
     return result;
-  }, [tokens, refresh]);
+  }, [tokens]);
 
   useEffect(() => {
     let isMounted = true;

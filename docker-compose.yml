@@ -23,6 +23,12 @@ services:
     container_name: ecoeats-backend
     environment:
       DATABASE_URL: postgresql://ecoEats:Damuss010197%24@db:5432/EcoEats?schema=public
+      JWT_ACCESS_SECRET: ecoeats-access-secret-change-in-production
+      JWT_REFRESH_SECRET: ecoeats-refresh-secret-change-in-production
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET}
+      CORS_ORIGIN: http://localhost:3000
+      HTTP_FRAMEWORK: express
       PORT: 3001
     depends_on:
       db:
@@ -39,9 +45,11 @@ services:
     depends_on:
       - backend
     ports:
-      - "3002:3000"
+      - "3000:3000"
     environment:
       NODE_ENV: production
+      NEXT_PUBLIC_API_URL: http://localhost:3001
+      NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: ${NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY}
 
 volumes:
   postgres_data:

@@ -12,6 +12,9 @@ CI/CD: GitHub Actions, Docker
 ### .env (a la racine du projet)
 
 DATABASE_URL="postgresql://<username>:<password>@localhost:5432/EcoEats"
+STRIPE_SECRET_KEY="<your_stripe_secret_key>"
+STRIPE_WEBHOOK_SECRET="<your_stripe_webhook_secret>"
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY="<your_stripe_publishable_key>"
 
 - Backend: http://localhost:3001
 - http://localhost:3002

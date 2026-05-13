@@ -4,13 +4,18 @@ import type { IDriverRepository } from "../../ports/IDriverRepository.js";
 import type { IOrderRepository } from "../../ports/IOrderRepository.js";
 import type { INotificationGateway } from "../../ports/INotificationGateway.js";
 import { DriverNotFoundError } from "./ToggleDriverStatusUseCase.js";
-import { DomainError } from "../../../domain/errors/DomainError.js";
+import { DeliveryAlreadyTakenError, DeliveryCapacityExceededError } from "../../../domain/errors/DeliveryErrors.js";
 
-export class DeliveryAlreadyTakenError extends DomainError {
-  readonly code = "DELIVERY_ALREADY_TAKEN";
-  constructor() { super("Cette commande a déjà été prise en charge par un autre livreur."); }
-}
+export { DeliveryAlreadyTakenError };
 
+/**
+ * Use Case : un livreur accepte une proposition de livraison.
+ *
+ * Règle métier :
+ *  - Un livreur standard ne peut avoir qu'UNE livraison active à la fois.
+ *  - Un livreur Expert peut en cumuler DEUX, à condition qu'elles viennent
+ *    du MÊME restaurant.
+ */
 export class AcceptDeliveryUseCase {
   constructor(
     private readonly driverRepository:    IDriverRepository,
@@ -21,31 +26,45 @@ export class AcceptDeliveryUseCase {
   async execute(
     userId:  string,
     orderId: string,
-  ): Promise<Result<void, DriverNotFoundError | DeliveryAlreadyTakenError>> {
+  ): Promise<Result<void, DriverNotFoundError | DeliveryAlreadyTakenError | DeliveryCapacityExceededError>> {
     const driver = await this.driverRepository.findByUserId(userId);
     if (!driver) return failure(new DriverNotFoundError());
 
-    const order  = await this.orderRepository.findById(orderId);
-    const result = await this.driverRepository.acceptDelivery(orderId, driver.id);
+    const targetOrder = await this.orderRepository.findById(orderId);
+    if (!targetOrder) return failure(new DeliveryAlreadyTakenError());
 
+    /* ── Vérification de la capacité du livreur ── */
+    const { count, restaurantIds } = await this.driverRepository.getActiveDeliveriesInfo(driver.id);
+
+    if (count >= 1) {
+      if (!driver.isExpert) {
+        /* Livreur standard : déjà une livraison → refus */
+        return failure(new DeliveryCapacityExceededError());
+      }
+      /* Livreur Expert : 2 livraisons max, et seulement du même restaurant */
+      if (count >= 2) return failure(new DeliveryCapacityExceededError());
+      const alreadyFromDifferentRestaurant = restaurantIds.some(
+        (id) => id !== targetOrder.restaurantId,
+      );
+      if (alreadyFromDifferentRestaurant) return failure(new DeliveryCapacityExceededError());
+    }
+
+    /* ── Tentative d'assignation atomique ── */
+    const result = await this.driverRepository.acceptDelivery(orderId, driver.id);
     if (!result.accepted) return failure(new DeliveryAlreadyTakenError());
 
-    if (order) {
-      /* ── Notification + temps réel pour le CLIENT ── */
-      this.notificationGateway.notifyUser(order.clientUserId, {
-        type:    "order_driver_assigned",
-        title:   "Livreur en route 🛵",
-        message: "Un livreur a accepté votre commande et se dirige vers le restaurant.",
-      });
-      this.notificationGateway.broadcastToRoom(`user:${order.clientUserId}`, "order:update", {
-        orderId, status: order.status, hasDriver: true,
-      });
-
-      /* ── Notification + temps réel pour le RESTAURANT ── */
-      this.notificationGateway.broadcastToRoom(`user:${order.restaurantOwnerId}`, "order:restaurant_update", {
-        orderId, driverName: driver.name,
-      });
-    }
+    /* ── Notifications temps réel ── */
+    this.notificationGateway.notifyUser(targetOrder.clientUserId, {
+      type:    "order_driver_assigned",
+      title:   "Livreur en route 🛵",
+      message: "Un livreur a accepté votre commande et se dirige vers le restaurant.",
+    });
+    this.notificationGateway.broadcastToRoom(`user:${targetOrder.clientUserId}`, "order:update", {
+      orderId, status: targetOrder.status, hasDriver: true,
+    });
+    this.notificationGateway.broadcastToRoom(`user:${targetOrder.restaurantOwnerId}`, "order:restaurant_update", {
+      orderId, driverName: driver.name,
+    });
 
     return ok(undefined);
   }

@@ -16,6 +16,9 @@ on:
     types: [ completed ]
     branches: [ main ]
 
+permissions:
+  contents: read
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
@@ -49,5 +52,24 @@ jobs:
           && docker image prune -f \
           && echo 'Deployment completed!'"
 
-    - name: Deployment Summary
-      run: echo "✅ Deployed to ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.environment || 'production' }} successfully!"
+    - name: Notify success
+      if: success()
+      run: |
+        echo "## ✅ Déploiement réussi" >> $GITHUB_STEP_SUMMARY
+        echo "| Champ | Valeur |" >> $GITHUB_STEP_SUMMARY
+        echo "|-------|--------|" >> $GITHUB_STEP_SUMMARY
+        echo "| Environnement | \`${{ github.event_name == 'workflow_dispatch' && github.event.inputs.environment || 'production' }}\` |" >> $GITHUB_STEP_SUMMARY
+        echo "| Commit | \`${{ github.sha }}\` |" >> $GITHUB_STEP_SUMMARY
+        echo "| Déclenché par | \`${{ github.actor }}\` |" >> $GITHUB_STEP_SUMMARY
+        echo "| Date | \`$(date -u +'%Y-%m-%d %H:%M:%S UTC')\` |" >> $GITHUB_STEP_SUMMARY
+
+    - name: Notify failure
+      if: failure()
+      run: |
+        echo "## ❌ Déploiement échoué" >> $GITHUB_STEP_SUMMARY
+        echo "| Champ | Valeur |" >> $GITHUB_STEP_SUMMARY
+        echo "|-------|--------|" >> $GITHUB_STEP_SUMMARY
+        echo "| Environnement | \`${{ github.event_name == 'workflow_dispatch' && github.event.inputs.environment || 'production' }}\` |" >> $GITHUB_STEP_SUMMARY
+        echo "| Commit | \`${{ github.sha }}\` |" >> $GITHUB_STEP_SUMMARY
+        echo "| Déclenché par | \`${{ github.actor }}\` |" >> $GITHUB_STEP_SUMMARY
+        echo "Vérifiez les logs ci-dessus pour identifier l'erreur." >> $GITHUB_STEP_SUMMARY

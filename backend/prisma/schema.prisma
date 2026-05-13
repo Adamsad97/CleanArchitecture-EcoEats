@@ -22,6 +22,7 @@ model Driver {
     lng            Float
     rating_avg     Float?
     is_verified    Boolean
+    is_expert      Boolean         @default(false)
     user_id        String?         @unique
     created_at     DateTime        @default(now())
     earnings       DriverEarning[] @relation("DriverEarnings")

@@ -1,7 +1,7 @@
 import { Router } from "express";
 import type { Request, Response, RequestHandler } from "express";
 import { z } from "zod";
-import type { CreateOrderUseCase } from "../../../application/usecases/order/CreateOrderUseCase.js";
+import type { CreateOrderUseCase, CreateOrderUseCaseInput } from "../../../application/usecases/order/CreateOrderUseCase.js";
 import type { GetUserOrdersUseCase } from "../../../application/usecases/order/GetUserOrdersUseCase.js";
 import type { GetRestaurantOrdersUseCase } from "../../../application/usecases/order/GetRestaurantOrdersUseCase.js";
 import type { UpdateOrderStatusUseCase } from "../../../application/usecases/order/UpdateOrderStatusUseCase.js";
@@ -20,8 +20,9 @@ const createOrderSchema = z.object({
   restaurantId:     z.string().uuid(),
   deliveryStreet:   z.string().min(3),
   deliveryCity:     z.string().min(1),
+  clientLat:        z.number(),
+  clientLng:        z.number(),
   items:            z.array(orderItemSchema).min(1),
-  deliveryFee:      z.number().min(0),
   paymentMethodId:  z.string().uuid().optional(),
 });
 
@@ -65,8 +66,11 @@ export function createOrderRoutes(
 
     try {
       const result = await updateOrderStatusUseCase.execute(orderId, status, request.user!.id);
-      if (!result.success) {
-        response.status(403).json({ message: result.message });
+      if (!result.ok) {
+        const statusCode = result.error.code === "UNAUTHORIZED_ORDER_ACCESS" ? 403
+          : result.error.code === "ORDER_NOT_FOUND"                          ? 404
+          : 422;
+        response.status(statusCode).json({ message: result.error.message });
         return;
       }
       response.status(200).json({ message: "Statut mis à jour" });
@@ -95,15 +99,25 @@ export function createOrderRoutes(
     }
 
     const result = await createOrderUseCase.execute({
-      userId,
-      restaurantId: parsed.data.restaurantId,
-      deliveryStreet: parsed.data.deliveryStreet,
-      deliveryCity: parsed.data.deliveryCity,
-      items: parsed.data.items,
-      deliveryFee: parsed.data.deliveryFee,
+      userId:          userId,
+      clientLat:       parsed.data.clientLat,
+      clientLng:       parsed.data.clientLng,
       paymentMethodId: resolvedPaymentMethodId,
+      rawInput: {
+        userId,
+        restaurantId:   parsed.data.restaurantId,
+        deliveryStreet: parsed.data.deliveryStreet,
+        deliveryCity:   parsed.data.deliveryCity,
+        items:          parsed.data.items,
+        deliveryFee:    0, // calculé par le domaine
+        paymentMethodId: resolvedPaymentMethodId,
+      },
     });
 
+    if (!result.ok) {
+      response.status(422).json({ message: result.error.message });
+      return;
+    }
     response.status(201).json(result.value);
   });
 

@@ -15,6 +15,10 @@ export type CreateOrderInput = {
   items:            OrderItemInput[];
   deliveryFee:      number;
   paymentMethodId:  string;
+  /** Valeurs calculées par l'entité Order du domaine (non recalculées en infra). */
+  orderId?:          string;
+  computedSubtotal?: number;
+  computedTotal?:    number;
 };
 
 export type OrderSummary = {

@@ -8,9 +8,10 @@ export class PrismaOrderRepository implements IOrderRepository {
   constructor(private readonly prismaClient: PrismaClient) {}
 
   async create(input: CreateOrderInput): Promise<OrderSummary> {
-    const subtotal    = input.items.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0);
-    const taxes       = Math.round(subtotal * TAXES_RATE * 100) / 100;
-    const total       = subtotal + input.deliveryFee + taxes;
+    const subtotal    = input.computedSubtotal
+      ?? input.items.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0);
+    const total       = input.computedTotal
+      ?? subtotal + input.deliveryFee;
     const estimatedAt = new Date(Date.now() + ESTIMATED_MINUTES * 60 * 1000);
 
     const address = await this.prismaClient.userAddress.create({

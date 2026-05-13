@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Image from "next/image";
 import { useAuth } from "../../../auth/context/AuthContext";
@@ -25,7 +25,7 @@ import type { MenuCategoryDto, MenuItemDto, MenuAvailability } from "../../../au
 
 const AVAILABILITY_OPTIONS: MenuAvailability[] = ["always", "lunch", "dinner", "weekend"];
 
-export default function MenuManagementPage() {
+function MenuManagementContent() {
   const { tokens } = useAuth();
   const searchParams        = useSearchParams();
   const restaurantId        = searchParams.get("restaurantId") ?? "";
@@ -40,7 +40,7 @@ export default function MenuManagementPage() {
   const [newCategoryAvail, setNewCategoryAvail] = useState<MenuAvailability>("always");
 
   const [showAddItem, setShowAddItem] = useState<string | null>(null);
-  const [newItem,          setNewItem]           = useState({ name: "", description: "", price: "", dailyStock: "" });
+  const [newItem, setNewItem] = useState({ name: "", description: "", price: "", dailyStock: "" });
 
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [editItemForm,  setEditItemForm]  = useState<Partial<MenuItemDto>>({});
@@ -62,7 +62,6 @@ export default function MenuManagementPage() {
     if (!newCategoryName.trim()) return;
     const token = await getToken();
     if (!token) return;
-
     const result = await createMenuCategory(restaurantId, { name: newCategoryName.trim(), availability: newCategoryAvail }, token);
     if (result.ok && result.data) {
       setCategories((previous) => [...previous, result.data!]);
@@ -85,7 +84,6 @@ export default function MenuManagementPage() {
     if (!newItem.name.trim() || !newItem.price) return;
     const token = await getToken();
     if (!token) return;
-
     const result = await createMenuItem(restaurantId, {
       categoryId,
       name:        newItem.name.trim(),
@@ -95,7 +93,6 @@ export default function MenuManagementPage() {
       isPopular:   false,
       ...(newItem.dailyStock !== "" && { dailyStock: parseInt(newItem.dailyStock) }),
     }, token);
-
     if (result.ok && result.data) {
       setCategories((previous) => previous.map((cat) =>
         cat.id === categoryId ? { ...cat, items: [...cat.items, result.data!] } : cat,
@@ -192,19 +189,14 @@ export default function MenuManagementPage() {
 
   return (
     <div className="max-w-3xl space-y-6 mx-auto">
-
-      {/* En-tête */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-black text-slate-900">Gestion du menu</h1>
           <p className="text-slate-500 text-sm mt-1">{categories.length} catégorie{categories.length !== 1 ? "s" : ""} · {categories.reduce((sum, cat) => sum + cat.items.length, 0)} plats</p>
         </div>
         <div className="flex gap-2">
-          <a
-            href={tokens?.accessToken ? exportMenuCsv(restaurantId, tokens.accessToken) : "#"}
-            download
-            className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50 transition"
-          >
+          <a href={tokens?.accessToken ? exportMenuCsv(restaurantId, tokens.accessToken) : "#"} download
+            className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50 transition">
             ↓ Exporter CSV
           </a>
           <button type="button" onClick={() => csvInputRef.current?.click()}
@@ -223,7 +215,6 @@ export default function MenuManagementPage() {
       {pageError   && <p className="text-sm text-red-600">{pageError}</p>}
       {actionError && <p className="text-sm text-red-600">{actionError}</p>}
 
-      {/* Formulaire nouvelle catégorie */}
       {showAddCategory && (
         <div className="bg-white rounded-2xl border border-slate-100 p-5 space-y-3 shadow-sm">
           <p className="text-xs font-bold uppercase tracking-widest text-slate-400">Nouvelle catégorie</p>
@@ -238,22 +229,15 @@ export default function MenuManagementPage() {
           </select>
           <div className="flex gap-3">
             <button type="button" onClick={handleAddCategory}
-              className="rounded-xl bg-orange-600 px-4 py-2 text-xs font-bold text-white hover:bg-orange-700 transition">
-              Créer
-            </button>
+              className="rounded-xl bg-orange-600 px-4 py-2 text-xs font-bold text-white hover:bg-orange-700 transition">Créer</button>
             <button type="button" onClick={() => setShowAddCategory(false)}
-              className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-medium text-slate-600 hover:bg-slate-50 transition">
-              Annuler
-            </button>
+              className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-medium text-slate-600 hover:bg-slate-50 transition">Annuler</button>
           </div>
         </div>
       )}
 
-      {/* Catégories et plats */}
       {categories.map((category) => (
         <div key={category.id} className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-
-          {/* En-tête catégorie */}
           <div className="flex items-center justify-between px-6 py-4 bg-slate-50 border-b border-slate-100">
             <div className="flex items-center gap-2">
               <span className="text-sm font-bold text-slate-900">{category.name}</span>
@@ -270,19 +254,18 @@ export default function MenuManagementPage() {
             </div>
           </div>
 
-          {/* Formulaire ajout plat */}
           {showAddItem === category.id && (
             <div className="px-6 py-4 border-b border-slate-100 space-y-3 bg-orange-50">
               <p className="text-xs font-bold uppercase tracking-widest text-orange-500">Nouveau plat</p>
               <div className="grid grid-cols-2 gap-3">
                 <input className="rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-900 col-span-2 focus:outline-none focus:ring-2 focus:ring-orange-400"
-                  placeholder="Nom du plat *" value={newItem.name} onChange={(e) => setNewItem((newItemForm) => ({ ...newItemForm, name: e.target.value }))} />
+                  placeholder="Nom du plat *" value={newItem.name} onChange={(e) => setNewItem((f) => ({ ...f, name: e.target.value }))} />
                 <input className="rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-900 col-span-2 focus:outline-none focus:ring-2 focus:ring-orange-400"
-                  placeholder="Description" value={newItem.description} onChange={(e) => setNewItem((newItemForm) => ({ ...newItemForm, description: e.target.value }))} />
+                  placeholder="Description" value={newItem.description} onChange={(e) => setNewItem((f) => ({ ...f, description: e.target.value }))} />
                 <input type="number" min="0" step="0.5" className="rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-orange-400"
-                  placeholder="Prix (€) *" value={newItem.price} onChange={(e) => setNewItem((newItemForm) => ({ ...newItemForm, price: e.target.value }))} />
+                  placeholder="Prix (€) *" value={newItem.price} onChange={(e) => setNewItem((f) => ({ ...f, price: e.target.value }))} />
                 <input type="number" min="0" className="rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-orange-400"
-                  placeholder="Stock jour (vide = illimité)" value={newItem.dailyStock} onChange={(e) => setNewItem((newItemForm) => ({ ...newItemForm, dailyStock: e.target.value }))} />
+                  placeholder="Stock jour (vide = illimité)" value={newItem.dailyStock} onChange={(e) => setNewItem((f) => ({ ...f, dailyStock: e.target.value }))} />
               </div>
               <div className="flex gap-3">
                 <button type="button" onClick={() => handleAddItem(category.id)}
@@ -293,110 +276,95 @@ export default function MenuManagementPage() {
             </div>
           )}
 
-          {/* Liste des plats — toujours visible */}
           <div className="divide-y divide-slate-100">
-              {category.items.length === 0 ? (
-                <p className="px-6 py-4 text-sm text-slate-400 italic">Aucun plat dans cette catégorie.</p>
-              ) : (
-                category.items.map((item) => (
-                  <div key={item.id} className="px-6 py-4">
-                    {editingItemId === item.id ? (
-                      /* Mode édition */
-                      <div className="space-y-3">
-                        <div className="grid grid-cols-2 gap-3">
-                          <input className="rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-900 col-span-2 focus:outline-none focus:ring-2 focus:ring-orange-400"
-                            value={editItemForm.name ?? item.name} onChange={(e) => setEditItemForm((editForm) => ({ ...editForm, name: e.target.value }))} />
-                          <input className="rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-900 col-span-2 focus:outline-none focus:ring-2 focus:ring-orange-400"
-                            placeholder="Description" value={editItemForm.description ?? item.description ?? ""}
-                            onChange={(e) => setEditItemForm((editForm) => ({ ...editForm, description: e.target.value }))} />
-                          <input type="number" min="0" step="0.5" className="rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-orange-400"
-                            value={editItemForm.price ?? item.price} onChange={(e) => setEditItemForm((editForm) => ({ ...editForm, price: parseFloat(e.target.value) }))} />
+            {category.items.length === 0 ? (
+              <p className="px-6 py-4 text-sm text-slate-400 italic">Aucun plat dans cette catégorie.</p>
+            ) : (
+              category.items.map((item) => (
+                <div key={item.id} className="px-6 py-4">
+                  {editingItemId === item.id ? (
+                    <div className="space-y-3">
+                      <div className="grid grid-cols-2 gap-3">
+                        <input className="rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-900 col-span-2 focus:outline-none focus:ring-2 focus:ring-orange-400"
+                          value={editItemForm.name ?? item.name} onChange={(e) => setEditItemForm((f) => ({ ...f, name: e.target.value }))} />
+                        <input className="rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-900 col-span-2 focus:outline-none focus:ring-2 focus:ring-orange-400"
+                          placeholder="Description" value={editItemForm.description ?? item.description ?? ""}
+                          onChange={(e) => setEditItemForm((f) => ({ ...f, description: e.target.value }))} />
+                        <input type="number" min="0" step="0.5" className="rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-orange-400"
+                          value={editItemForm.price ?? item.price} onChange={(e) => setEditItemForm((f) => ({ ...f, price: parseFloat(e.target.value) }))} />
+                      </div>
+                      <div className="flex gap-3">
+                        <button type="button" onClick={() => handleSaveEditItem(category.id)}
+                          className="rounded-xl bg-orange-600 px-4 py-2 text-xs font-bold text-white hover:bg-orange-700 transition">Enregistrer</button>
+                        <button type="button" onClick={() => setEditingItemId(null)}
+                          className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-medium text-slate-600 hover:bg-slate-50 transition">Annuler</button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex items-start gap-4">
+                      <div className="w-14 h-14 rounded-xl overflow-hidden bg-slate-100 shrink-0 relative group">
+                        {getItemPhotoUrl(item.photoUrl) ? (
+                          <Image src={getItemPhotoUrl(item.photoUrl)!} alt={item.name} fill sizes="56px" className="object-cover" />
+                        ) : (
+                          <span className="flex items-center justify-center h-full text-2xl">🍽️</span>
+                        )}
+                        <label className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition cursor-pointer">
+                          <span className="text-white text-xs">📷</span>
+                          <input type="file" accept="image/*" className="hidden"
+                            onChange={(e) => { const file = e.target.files?.[0]; if (file) handlePhotoUpload(category.id, item.id, file); e.target.value = ""; }} />
+                        </label>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="text-sm font-bold text-slate-900">{item.name}</p>
+                          {item.isPopular && <span className="text-xs bg-amber-100 text-amber-700 font-bold px-1.5 py-0.5 rounded-full">⭐ Populaire</span>}
+                          {!item.isAvailable && <span className="text-xs bg-red-100 text-red-600 font-bold px-1.5 py-0.5 rounded-full">Indisponible</span>}
                         </div>
-                        <div className="flex gap-3">
-                          <button type="button" onClick={() => handleSaveEditItem(category.id)}
-                            className="rounded-xl bg-orange-600 px-4 py-2 text-xs font-bold text-white hover:bg-orange-700 transition">Enregistrer</button>
-                          <button type="button" onClick={() => setEditingItemId(null)}
-                            className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-medium text-slate-600 hover:bg-slate-50 transition">Annuler</button>
+                        {item.description && <p className="text-xs text-slate-500 mt-1 leading-relaxed">{item.description}</p>}
+                        {item.options.length > 0 && (
+                          <div className="mt-2 space-y-1">
+                            {item.options.map((option) => (
+                              <div key={option.id} className="text-xs text-slate-500">
+                                <span className="font-semibold text-slate-700">{option.name}</span>
+                                {option.isRequired && <span className="text-red-400 ml-1">*</span>}
+                                <span className="text-slate-400 ml-1">
+                                  ({option.values.map((v) => v.extraPrice > 0 ? `${v.label} +${v.extraPrice.toFixed(2)}€` : v.label).join(", ")})
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        <div className="flex items-center gap-3 mt-2 flex-wrap">
+                          <span className="text-sm font-bold text-orange-600">{item.price.toFixed(2)} €</span>
+                          {item.dailyStock !== null && (
+                            <span className={`text-xs font-semibold ${item.dailyStock === 0 ? "text-red-600" : "text-slate-500"}`}>
+                              Stock : {item.dailyStock === 0 ? "⚠️ Rupture" : `${item.dailyStock} restants`}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2 mt-2">
+                          <label className="text-xs text-slate-400">Stock/jour :</label>
+                          <input type="number" min="0" placeholder="∞ illimité"
+                            defaultValue={item.dailyStock !== null ? String(item.dailyStock) : ""}
+                            className="w-28 rounded-lg border border-slate-200 px-2 py-1 text-xs text-slate-900 focus:outline-none focus:ring-1 focus:ring-orange-400"
+                            onBlur={(e) => handleUpdateStock(category.id, item, e.target.value)} />
                         </div>
                       </div>
-                    ) : (
-                      /* Mode affichage */
-                      <div className="flex items-start gap-4">
-                        {/* Photo */}
-                        <div className="w-14 h-14 rounded-xl overflow-hidden bg-slate-100 shrink-0 relative group">
-                          {getItemPhotoUrl(item.photoUrl) ? (
-                            <Image src={getItemPhotoUrl(item.photoUrl)!} alt={item.name} fill sizes="56px" className="object-cover" />
-                          ) : (
-                            <span className="flex items-center justify-center h-full text-2xl">🍽️</span>
-                          )}
-                          <label className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition cursor-pointer">
-                            <span className="text-white text-xs">📷</span>
-                            <input type="file" accept="image/*" className="hidden"
-                              onChange={(e) => { const file = e.target.files?.[0]; if (file) handlePhotoUpload(category.id, item.id, file); e.target.value = ""; }} />
-                          </label>
-                        </div>
-
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <p className="text-sm font-bold text-slate-900">{item.name}</p>
-                            {item.isPopular && <span className="text-xs bg-amber-100 text-amber-700 font-bold px-1.5 py-0.5 rounded-full">⭐ Populaire</span>}
-                            {!item.isAvailable && <span className="text-xs bg-red-100 text-red-600 font-bold px-1.5 py-0.5 rounded-full">Indisponible</span>}
-                          </div>
-
-                          {/* Description toujours visible */}
-                          {item.description && (
-                            <p className="text-xs text-slate-500 mt-1 leading-relaxed">{item.description}</p>
-                          )}
-
-                          {/* Options / variantes */}
-                          {item.options.length > 0 && (
-                            <div className="mt-2 space-y-1">
-                              {item.options.map((option) => (
-                                <div key={option.id} className="text-xs text-slate-500">
-                                  <span className="font-semibold text-slate-700">{option.name}</span>
-                                  {option.isRequired && <span className="text-red-400 ml-1">*</span>}
-                                  <span className="text-slate-400 ml-1">
-                                    ({option.values.map((value) => value.extraPrice > 0 ? `${value.label} +${value.extraPrice.toFixed(2)}€` : value.label).join(", ")})
-                                  </span>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-
-                          <div className="flex items-center gap-3 mt-2 flex-wrap">
-                            <span className="text-sm font-bold text-orange-600">{item.price.toFixed(2)} €</span>
-                            {item.dailyStock !== null && (
-                              <span className={`text-xs font-semibold ${item.dailyStock === 0 ? "text-red-600" : "text-slate-500"}`}>
-                                Stock : {item.dailyStock === 0 ? "⚠️ Rupture" : `${item.dailyStock} restants`}
-                              </span>
-                            )}
-                          </div>
-
-                          {/* Contrôle stock inline */}
-                          <div className="flex items-center gap-2 mt-2">
-                            <label className="text-xs text-slate-400">Stock/jour :</label>
-                            <input type="number" min="0" placeholder="∞ illimité"
-                              defaultValue={item.dailyStock !== null ? String(item.dailyStock) : ""}
-                              className="w-28 rounded-lg border border-slate-200 px-2 py-1 text-xs text-slate-900 focus:outline-none focus:ring-1 focus:ring-orange-400"
-                              onBlur={(e) => handleUpdateStock(category.id, item, e.target.value)} />
-                          </div>
-                        </div>
-
-                        <div className="flex flex-col gap-1 shrink-0">
-                          <button type="button" onClick={() => handleToggleAvailability(category.id, item)}
-                            className={`rounded-lg px-3 py-1 text-xs font-bold transition ${item.isAvailable ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-200" : "bg-slate-100 text-slate-500 hover:bg-slate-200"}`}>
-                            {item.isAvailable ? "Actif" : "Désactivé"}
-                          </button>
-                          <button type="button" onClick={() => { setEditingItemId(item.id); setEditItemForm({}); }}
-                            className="rounded-lg border border-slate-200 px-3 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50 transition">Modifier</button>
-                          <button type="button" onClick={() => handleDeleteItem(category.id, item.id)}
-                            className="rounded-lg border border-red-100 px-3 py-1 text-xs font-medium text-red-500 hover:bg-red-50 transition">Supprimer</button>
-                        </div>
+                      <div className="flex flex-col gap-1 shrink-0">
+                        <button type="button" onClick={() => handleToggleAvailability(category.id, item)}
+                          className={`rounded-lg px-3 py-1 text-xs font-bold transition ${item.isAvailable ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-200" : "bg-slate-100 text-slate-500 hover:bg-slate-200"}`}>
+                          {item.isAvailable ? "Actif" : "Désactivé"}
+                        </button>
+                        <button type="button" onClick={() => { setEditingItemId(item.id); setEditItemForm({}); }}
+                          className="rounded-lg border border-slate-200 px-3 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50 transition">Modifier</button>
+                        <button type="button" onClick={() => handleDeleteItem(category.id, item.id)}
+                          className="rounded-lg border border-red-100 px-3 py-1 text-xs font-medium text-red-500 hover:bg-red-50 transition">Supprimer</button>
                       </div>
-                    )}
-                  </div>
-                ))
-              )}
+                    </div>
+                  )}
+                </div>
+              ))
+            )}
           </div>
         </div>
       ))}
@@ -408,5 +376,13 @@ export default function MenuManagementPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function MenuManagementPage() {
+  return (
+    <Suspense fallback={<div className="p-8 text-slate-400 text-sm">Chargement…</div>}>
+      <MenuManagementContent />
+    </Suspense>
   );
 }

@@ -1,31 +1,57 @@
+import type { Result } from "../../../shared/Result.js";
+import { ok, failure } from "../../../shared/Result.js";
 import type { IOrderRepository } from "../../ports/IOrderRepository.js";
 import type { IRestaurantRepository } from "../../ports/IRestaurantRepository.js";
 import type { INotificationGateway } from "../../ports/INotificationGateway.js";
+import { OrderStatus, type OrderStatusValue } from "../../../domain/value-objects/OrderStatus.js";
+import { InvalidOrderTransitionError } from "../../../domain/errors/OrderErrors.js";
+import { DomainError } from "../../../domain/errors/DomainError.js";
 
-const ALLOWED_TRANSITIONS: Record<string, string[]> = {
-  created:   ["confirmed", "cancelled"],
-  confirmed: ["prepared", "cancelled"],
-  prepared:  ["delivered"],
-};
+export class OrderNotFoundError extends DomainError {
+  readonly code = "ORDER_NOT_FOUND";
+  constructor() { super("Commande introuvable."); }
+}
 
-const STATUS_NOTIFICATIONS: Record<string, { title: string; message: string; type: string }> = {
-  confirmed: {
+export class UnauthorizedOrderAccessError extends DomainError {
+  readonly code = "UNAUTHORIZED_ORDER_ACCESS";
+  constructor() { super("Vous n'êtes pas autorisé à modifier cette commande."); }
+}
+
+/** Notifications envoyées au client selon le nouveau statut. */
+const STATUS_NOTIFICATIONS: Partial<Record<OrderStatusValue, { type: string; title: string; message: string }>> = {
+  ACCEPTED: {
     type:    "order_confirmed",
     title:   "Commande acceptée ! 🎉",
     message: "Le restaurant a accepté votre commande et commence la préparation.",
   },
-  prepared: {
+  READY_FOR_PICKUP: {
     type:    "order_prepared",
     title:   "Commande prête ! 🍽️",
     message: "Votre commande est prête, un livreur va la prendre en charge.",
   },
-  cancelled: {
+  REFUSED: {
+    type:    "order_cancelled",
+    title:   "Commande refusée ❌",
+    message: "Votre commande a été refusée par le restaurant.",
+  },
+  CANCELLED: {
     type:    "order_cancelled",
     title:   "Commande annulée ❌",
-    message: "Votre commande a été annulée par le restaurant.",
+    message: "Votre commande a été annulée.",
   },
 };
 
+export type UpdateOrderStatusError =
+  | OrderNotFoundError
+  | UnauthorizedOrderAccessError
+  | InvalidOrderTransitionError;
+
+/**
+ * Use Case : mise à jour du statut d'une commande.
+ *
+ * La validation des transitions est déléguée à OrderStatus.canTransitionTo()
+ * (Value Object du domaine) — aucune duplication de la machine à états ici.
+ */
 export class UpdateOrderStatusUseCase {
   constructor(
     private readonly orderRepository:      IOrderRepository,
@@ -37,23 +63,26 @@ export class UpdateOrderStatusUseCase {
     orderId:   string,
     newStatus: string,
     userId:    string,
-  ): Promise<{ success: boolean; message?: string }> {
+  ): Promise<Result<void, UpdateOrderStatusError>> {
     const order = await this.orderRepository.findById(orderId);
-    if (!order) return { success: false, message: "Commande introuvable" };
+    if (!order) return failure(new OrderNotFoundError());
 
-    const restaurants = await this.restaurantRepository.findAllByOwnerId(userId);
+    const restaurants    = await this.restaurantRepository.findAllByOwnerId(userId);
     const ownsRestaurant = restaurants.some((r) => r.id === order.restaurantId);
-    if (!ownsRestaurant) return { success: false, message: "Non autorisé" };
+    if (!ownsRestaurant) return failure(new UnauthorizedOrderAccessError());
 
-    const allowed = ALLOWED_TRANSITIONS[order.status] ?? [];
-    if (!allowed.includes(newStatus)) {
-      return { success: false, message: `Transition invalide : ${order.status} → ${newStatus}` };
+    /* ── Validation de la transition via le Value Object du domaine ── */
+    const currentStatus = OrderStatus.from(order.status as OrderStatusValue);
+    const nextStatus    = newStatus as OrderStatusValue;
+
+    if (!currentStatus.canTransitionTo(nextStatus)) {
+      return failure(new InvalidOrderTransitionError(order.status as OrderStatusValue, nextStatus));
     }
 
-    await this.orderRepository.updateStatus(orderId, newStatus);
+    await this.orderRepository.updateStatus(orderId, nextStatus);
 
-    /* ── Notification + mise à jour temps réel ── */
-    const notif = STATUS_NOTIFICATIONS[newStatus];
+    /* ── Notification + temps réel ── */
+    const notif = STATUS_NOTIFICATIONS[nextStatus];
     if (notif) {
       this.notificationGateway.notifyUser(order.clientUserId, {
         type:    notif.type as any,
@@ -64,9 +93,9 @@ export class UpdateOrderStatusUseCase {
     this.notificationGateway.broadcastToRoom(
       `user:${order.clientUserId}`,
       "order:update",
-      { orderId, status: newStatus, hasDriver: false },
+      { orderId, status: nextStatus, hasDriver: false },
     );
 
-    return { success: true };
+    return ok(undefined);
   }
 }

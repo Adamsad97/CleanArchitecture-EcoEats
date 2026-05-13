@@ -5,12 +5,16 @@ import type { DriverProfile, AvailableDelivery, ActiveDelivery } from "../../app
 export class PrismaDriverRepository implements IDriverRepository {
   constructor(private readonly prismaClient: PrismaClient) {}
 
-  async findByUserId(userId: string): Promise<DriverProfile | null> {
-    const driver = await this.prismaClient.driver.findUnique({
-      where: { user_id: userId },
-      select: { id: true, user_id: true, name: true, transport_type: true, is_online: true, is_verified: true },
-    });
-    if (!driver) return null;
+  /** Sélection partagée pour éviter la duplication. */
+  private readonly driverSelect = {
+    id: true, user_id: true, name: true,
+    transport_type: true, is_online: true, is_verified: true, is_expert: true,
+  } as const;
+
+  private toProfile(driver: {
+    id: string; user_id: string | null; name: string;
+    transport_type: string; is_online: boolean; is_verified: boolean; is_expert: boolean;
+  }): DriverProfile {
     return {
       id:            driver.id,
       userId:        driver.user_id ?? "",
@@ -18,22 +22,38 @@ export class PrismaDriverRepository implements IDriverRepository {
       transportType: driver.transport_type as "bike" | "scooter" | "car",
       isOnline:      driver.is_online,
       isVerified:    driver.is_verified,
+      isExpert:      driver.is_expert,
     };
+  }
+
+  async findByUserId(userId: string): Promise<DriverProfile | null> {
+    const driver = await this.prismaClient.driver.findUnique({
+      where:  { user_id: userId },
+      select: this.driverSelect,
+    });
+    return driver ? this.toProfile(driver) : null;
   }
 
   async toggleOnlineStatus(driverId: string, isOnline: boolean): Promise<DriverProfile> {
     const driver = await this.prismaClient.driver.update({
-      where: { id: driverId },
-      data:  { is_online: isOnline },
-      select: { id: true, user_id: true, name: true, transport_type: true, is_online: true, is_verified: true },
+      where:  { id: driverId },
+      data:   { is_online: isOnline },
+      select: this.driverSelect,
+    });
+    return this.toProfile(driver);
+  }
+
+  async getActiveDeliveriesInfo(driverId: string): Promise<{ count: number; restaurantIds: string[] }> {
+    const activeOrders = await this.prismaClient.order.findMany({
+      where: {
+        driver_id: driverId,
+        status:    { notIn: ["delivered", "cancelled", "refused"] },
+      },
+      select: { restaurant_id: true },
     });
     return {
-      id:            driver.id,
-      userId:        driver.user_id ?? "",
-      name:          driver.name,
-      transportType: driver.transport_type as "bike" | "scooter" | "car",
-      isOnline:      driver.is_online,
-      isVerified:    driver.is_verified,
+      count:         activeOrders.length,
+      restaurantIds: activeOrders.map((o) => o.restaurant_id),
     };
   }
 
@@ -71,18 +91,12 @@ export class PrismaDriverRepository implements IDriverRepository {
         lat:            0,
         lng:            0,
         is_verified:    false,
+        is_expert:      false,
         user:           { connect: { id: input.userId } },
       },
-      select: { id: true, user_id: true, name: true, transport_type: true, is_online: true, is_verified: true },
+      select: this.driverSelect,
     });
-    return {
-      id:            driver.id,
-      userId:        driver.user_id ?? "",
-      name:          driver.name,
-      transportType: driver.transport_type as "bike" | "scooter" | "car",
-      isOnline:      driver.is_online,
-      isVerified:    driver.is_verified,
-    };
+    return this.toProfile(driver);
   }
 
   async acceptDelivery(orderId: string, driverId: string): Promise<{ accepted: boolean }> {

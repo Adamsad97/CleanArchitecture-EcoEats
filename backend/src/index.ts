@@ -83,7 +83,7 @@ const removePaymentMethodUseCase = new RemovePaymentMethodUseCase(paymentMethodR
 
 // ── Commandes ────────────────────────────────────────────────────────────────
 const orderRepository      = new PrismaOrderRepository(prisma);
-const createOrderUseCase   = new CreateOrderUseCase(orderRepository);
+const createOrderUseCase   = new CreateOrderUseCase(orderRepository, restaurantRepository);
 const getUserOrdersUseCase = new GetUserOrdersUseCase(orderRepository);
 
 // ── Restaurants ───────────────────────────────────────────────────────────────

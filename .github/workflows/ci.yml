@@ -46,6 +46,13 @@ jobs:
     - run: npm run build --prefix backend
       env:
         DATABASE_URL: postgresql://postgres:postgres@localhost:5432/ecoeats_test
+    - run: npm test --prefix backend
+      env:
+        DATABASE_URL: postgresql://postgres:postgres@localhost:5432/ecoeats_test
+        JWT_ACCESS_SECRET: ci-access-secret
+        JWT_REFRESH_SECRET: ci-refresh-secret
+        STRIPE_SECRET_KEY: sk_test_placeholder
+        STRIPE_WEBHOOK_SECRET: whsec_placeholder
 
   frontend:
     runs-on: ubuntu-latest

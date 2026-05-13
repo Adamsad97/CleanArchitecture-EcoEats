@@ -15,6 +15,11 @@ export class DeliveryCapacityExceededError extends DomainError {
   }
 }
 
+export class DeliveryAlreadyTakenError extends DomainError {
+  readonly code = "DELIVERY_ALREADY_TAKEN";
+  constructor() { super("Cette commande a déjà été prise en charge par un autre livreur."); }
+}
+
 export class DeliveryNotFoundError extends DomainError {
   readonly code = "DELIVERY_NOT_FOUND";
   constructor() { super("Livraison introuvable."); }

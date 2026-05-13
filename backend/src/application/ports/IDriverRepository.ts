@@ -15,6 +15,8 @@ export interface IDriverRepository {
   getAvailableDeliveries(): Promise<AvailableDelivery[]>;
   acceptDelivery(orderId: string, driverId: string): Promise<{ accepted: boolean }>;
   getActiveDelivery(driverId: string): Promise<ActiveDelivery | null>;
+  /** Retourne le nombre de livraisons actives du livreur (et le restaurantId de chacune). */
+  getActiveDeliveriesInfo(driverId: string): Promise<{ count: number; restaurantIds: string[] }>;
   pickupDelivery(orderId: string, driverId: string): Promise<{ success: boolean; message?: string }>;
   completeDelivery(orderId: string, driverId: string): Promise<{ success: boolean; message?: string }>;
 }
