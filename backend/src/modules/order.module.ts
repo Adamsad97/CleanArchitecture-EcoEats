@@ -9,21 +9,21 @@ import { GetRestaurantOrdersUseCase } from "../application/usecases/order/GetRes
 import { UpdateOrderStatusUseCase } from "../application/usecases/order/UpdateOrderStatusUseCase.js";
 import { GetOrderInvoiceUseCase } from "../application/usecases/order/GetOrderInvoiceUseCase.js";
 
+import type { IEventStore } from "../application/ports/IEventStore.js";
+
 type Deps = {
   prisma:              PrismaClient;
   restaurantModule:    ReturnType<typeof buildRestaurantModule>;
   menuModule:          ReturnType<typeof buildMenuModule>;
   notificationGateway: INotificationGateway;
   paymentMethodRepository: any;
+  eventStore:          IEventStore;
 };
 
 /**
  * Module Order — assemble le repository et tous les use cases commandes.
- *
- * Expose `orderRepository` pour que le module Driver puisse l'injecter
- * (principe de dépendance explicite, sans conteneur global).
  */
-export function buildOrderModule({ prisma, restaurantModule, menuModule, notificationGateway, paymentMethodRepository }: Deps) {
+export function buildOrderModule({ prisma, restaurantModule, menuModule, notificationGateway, paymentMethodRepository, eventStore }: Deps) {
   const orderRepository = new PrismaOrderRepository(prisma);
 
   return {
@@ -33,6 +33,7 @@ export function buildOrderModule({ prisma, restaurantModule, menuModule, notific
       restaurantModule.restaurantRepository,
       menuModule.menuItemRepository,
       paymentMethodRepository,
+      eventStore,
     ),
     getUserOrdersUseCase:      new GetUserOrdersUseCase(orderRepository),
     getRestaurantOrdersUseCase: new GetRestaurantOrdersUseCase(orderRepository, restaurantModule.restaurantRepository),

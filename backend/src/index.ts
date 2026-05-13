@@ -11,6 +11,10 @@ import { Server as SocketIOServer } from "socket.io";
 import { SocketIOGateway } from "./infrastructure/frameworks/websocket/SocketIOGateway.js";
 import { setupNotificationAdapter } from "./interfaces/adapters/websocket/notificationAdapter.js";
 import type { INotificationGateway } from "./application/ports/INotificationGateway.js";
+import { ConfigService } from "./infrastructure/config/ConfigService.js";
+import { RedisCacheService } from "./infrastructure/services/RedisCacheService.js";
+import { PrismaEventStore } from "./infrastructure/repositories/PrismaEventStore.js";
+import { MetricsService } from "./infrastructure/monitoring/MetricsService.js";
 
 // ── Modules métier ────────────────────────────────────────────────────────────
 import { buildAuthModule } from "./modules/auth.module.js";
@@ -31,6 +35,10 @@ const userRepository         = new PrismaUserRepository(prisma);
 const refreshTokenRepository = new PrismaRefreshTokenRepository(prisma);
 const jwtTokenService        = new JwtTokenService(env);
 const bcryptPasswordHasher   = new BcryptPasswordHasher();
+const configService          = new ConfigService(env);
+const cacheService           = new RedisCacheService(configService);
+const eventStore             = new PrismaEventStore(prisma);
+const metricsService         = new MetricsService();
 
 /* Proxy lazy : le gateway réel (Socket.IO) est injecté après démarrage du serveur HTTP. */
 let resolvedGateway: SocketIOGateway | null = null;
@@ -43,8 +51,8 @@ const notificationGateway: INotificationGateway = {
 const auth        = buildAuthModule({ userRepository, refreshTokenRepository, jwtTokenService, bcryptPasswordHasher });
 const payment     = buildPaymentModule({ prisma, env });
 const restaurant  = buildRestaurantModule({ prisma });
-const menu        = buildMenuModule({ prisma });
-const order       = buildOrderModule({ prisma, restaurantModule: restaurant, menuModule: menu, notificationGateway, paymentMethodRepository: payment.paymentMethodRepository });
+const menu        = buildMenuModule({ prisma, cacheService });
+const order       = buildOrderModule({ prisma, restaurantModule: restaurant, menuModule: menu, notificationGateway, paymentMethodRepository: payment.paymentMethodRepository, eventStore });
 const driver      = buildDriverModule({ prisma, orderModule: order, notificationGateway });
 const admin       = buildAdminModule({ prisma });
 
@@ -131,6 +139,7 @@ const startServer = async () => {
     getAdminStatsUseCase:                 admin.getAdminStatsUseCase,
     /* ── Shared ── */
     notificationGateway,
+    metricsService,
     corsOrigin:                           env.corsOrigins,
   });
 

@@ -1,34 +1,14 @@
 import { Router } from "express";
 import type { Request, Response, RequestHandler } from "express";
-import { z } from "zod";
-import type { CreateOrderUseCase, CreateOrderUseCaseInput } from "../../../application/usecases/order/CreateOrderUseCase.js";
+import { validate } from "../middlewares/validate.js";
+import { createOrderSchema, updateOrderStatusSchema } from "../validation/orderSchemas.js";
+import type { CreateOrderUseCase } from "../../../application/usecases/order/CreateOrderUseCase.js";
 import type { GetUserOrdersUseCase } from "../../../application/usecases/order/GetUserOrdersUseCase.js";
 import type { GetRestaurantOrdersUseCase } from "../../../application/usecases/order/GetRestaurantOrdersUseCase.js";
 import type { UpdateOrderStatusUseCase } from "../../../application/usecases/order/UpdateOrderStatusUseCase.js";
 import type { GetOrderInvoiceUseCase } from "../../../application/usecases/order/GetOrderInvoiceUseCase.js";
-import type { IPaymentMethodRepository } from "../../../application/ports/IPaymentMethodRepository.js";
 import { InvoicePresenter } from "../../presenters/InvoicePresenter.js";
 import { domainErrorToStatus } from "../utils/domainErrorToStatus.js";
-
-const orderItemSchema = z.object({
-  menuItemId:       z.string().uuid(),
-  name:             z.string().min(1),
-  unitPrice:        z.number().min(0),
-  quantity:         z.number().int().positive(),
-  notes:            z.string().optional(),
-  optionValueIds:   z.array(z.string().uuid()).optional(),
-});
-
-const createOrderSchema = z.object({
-  restaurantId:     z.string().uuid(),
-  deliveryStreet:   z.string().min(3),
-  deliveryCity:     z.string().min(1),
-  clientLat:        z.number(),
-  clientLng:        z.number(),
-  items:            z.array(orderItemSchema).min(1),
-  tipAmount:        z.number().min(0).optional(),
-  paymentMethodId:  z.string().uuid().optional(),
-});
 
 export function createOrderRoutes(
   createOrderUseCase:        CreateOrderUseCase,
@@ -36,7 +16,7 @@ export function createOrderRoutes(
   getRestaurantOrdersUseCase: GetRestaurantOrdersUseCase,
   updateOrderStatusUseCase:  UpdateOrderStatusUseCase,
   getOrderInvoiceUseCase:    GetOrderInvoiceUseCase,
-  paymentMethodRepository:   IPaymentMethodRepository,
+  _paymentMethodRepository:   any,
   requireAuth:               RequestHandler,
 ): Router {
   const router = Router();
@@ -63,27 +43,17 @@ export function createOrderRoutes(
     }
   });
 
-  /* ── PATCH /:orderId/status — Changer le statut (accept/refuse/prepare) ── */
-  router.patch("/:orderId/status", requireAuth, async (request: Request, response: Response) => {
-    const { orderId } = request.params;
-    const parsed = z.object({
-      status:          z.string(),
-      prepTimeMinutes: z.number().int().positive().optional(),
-    }).safeParse(request.body);
-    if (!parsed.success) { response.status(400).json({ message: "Statut requis" }); return; }
-
+  /* ── PATCH /:orderId/status — Changer le statut ── */
+  router.patch("/:orderId/status", requireAuth, validate(updateOrderStatusSchema), async (request: Request, response: Response) => {
     try {
       const result = await updateOrderStatusUseCase.execute(
-        orderId,
-        parsed.data.status,
+        request.params.orderId,
+        request.body.status,
         request.user!.id,
-        parsed.data.prepTimeMinutes,
+        request.body.prepTimeMinutes,
       );
       if (!result.ok) {
-        const statusCode = result.error.code === "UNAUTHORIZED_ORDER_ACCESS" ? 403
-          : result.error.code === "ORDER_NOT_FOUND"                          ? 404
-          : 422;
-        response.status(statusCode).json({ message: result.error.message });
+        response.status(domainErrorToStatus(result.error)).json({ message: result.error.message });
         return;
       }
       response.status(200).json({ message: "Statut mis à jour" });
@@ -93,29 +63,25 @@ export function createOrderRoutes(
     }
   });
 
-  router.post("/", requireAuth, async (request: Request, response: Response) => {
-    const parsed = createOrderSchema.safeParse(request.body);
-    if (!parsed.success) {
-      response.status(400).json({ message: "Données invalides", errors: parsed.error.issues });
-      return;
-    }
-
+  /* ── POST / — Passer une commande ── */
+  router.post("/", requireAuth, validate(createOrderSchema), async (request: Request, response: Response) => {
     const userId = request.user!.id;
+    const { body } = request;
 
     const result = await createOrderUseCase.execute({
       userId:          userId,
-      clientLat:       parsed.data.clientLat,
-      clientLng:       parsed.data.clientLng,
-      paymentMethodId: parsed.data.paymentMethodId,
+      clientLat:       body.clientLat,
+      clientLng:       body.clientLng,
+      paymentMethodId: body.paymentMethodId,
       rawInput: {
         userId,
-        restaurantId:   parsed.data.restaurantId,
-        deliveryStreet: parsed.data.deliveryStreet,
-        deliveryCity:   parsed.data.deliveryCity,
-        items:          parsed.data.items,
+        restaurantId:   body.restaurantId,
+        deliveryStreet: body.deliveryStreet,
+        deliveryCity:   body.deliveryCity,
+        items:          body.items,
         deliveryFee:    0,
-        tipAmount:      parsed.data.tipAmount,
-        paymentMethodId: parsed.data.paymentMethodId,
+        tipAmount:      body.tipAmount,
+        paymentMethodId: body.paymentMethodId,
       },
     });
 
@@ -126,10 +92,9 @@ export function createOrderRoutes(
     response.status(201).json(result.value);
   });
 
-  /* ── GET /:orderId/invoice — Facture détaillée après paiement ── */
+  /* ── GET /:orderId/invoice — Facture détaillée ── */
   router.get("/:orderId/invoice", requireAuth, async (request: Request, response: Response) => {
-    const { orderId } = request.params;
-    const result = await getOrderInvoiceUseCase.execute({ orderId, userId: request.user!.id });
+    const result = await getOrderInvoiceUseCase.execute({ orderId: request.params.orderId, userId: request.user!.id });
     if (!result.ok) {
       response.status(domainErrorToStatus(result.error)).json({ message: result.error.message });
       return;

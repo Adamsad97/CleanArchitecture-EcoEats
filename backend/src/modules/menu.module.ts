@@ -14,22 +14,24 @@ import { CreateMenuItemOptionUseCase } from "../application/usecases/menu/Create
 import { ExportMenuCsvUseCase } from "../application/usecases/menu/ExportMenuCsvUseCase.js";
 import { ImportMenuCsvUseCase } from "../application/usecases/menu/ImportMenuCsvUseCase.js";
 
-type Deps = { prisma: PrismaClient };
+import type { ICacheService } from "../application/ports/ICacheService.js";
+
+type Deps = { 
+  prisma: PrismaClient;
+  cacheService: ICacheService;
+};
 
 /**
  * Module Menu — assemble tous les repositories et use cases du domaine Menu.
- *
- * Pattern : Factory Function → injection de dépendances explicite,
- * sans conteneur IoC externe (KISS).
  */
-export function buildMenuModule({ prisma }: Deps) {
+export function buildMenuModule({ prisma, cacheService }: Deps) {
   const menuCategoryRepository = new PrismaMenuCategoryRepository(prisma);
   const menuItemRepository     = new PrismaMenuItemRepository(prisma);
 
   return {
     menuCategoryRepository,
     menuItemRepository,
-    getRestaurantMenuUseCase:          new GetRestaurantMenuUseCase(menuCategoryRepository),
+    getRestaurantMenuUseCase:          new GetRestaurantMenuUseCase(menuCategoryRepository, cacheService),
     createMenuCategoryUseCase:         new CreateMenuCategoryUseCase(menuCategoryRepository),
     updateMenuCategoryUseCase:         new UpdateMenuCategoryUseCase(menuCategoryRepository),
     deleteMenuCategoryUseCase:         new DeleteMenuCategoryUseCase(menuCategoryRepository),

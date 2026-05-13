@@ -14,11 +14,55 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    networks:
+      - ecoeats_net
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-ecoEats} -d ${POSTGRES_DB:-EcoEats}"]
       interval: 10s
       timeout: 5s
       retries: 5
+
+  # --- Cache Redis ---
+  redis:
+    image: redis:alpine
+    container_name: ecoeats-redis
+    restart: always
+    networks:
+      - ecoeats_net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # --- Monitoring Prometheus ---
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: ecoeats-prometheus
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    ports:
+      - "9090:9090"
+    networks:
+      - ecoeats_net
+    restart: always
+
+  # --- Monitoring Grafana ---
+  grafana:
+    image: grafana/grafana:latest
+    container_name: ecoeats-grafana
+    depends_on:
+      - prometheus
+    ports:
+      - "3002:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
+    volumes:
+      - grafana_data:/var/lib/grafana
+    networks:
+      - ecoeats_net
+    restart: always
 
   # --- Backend API (Docker Hub) ---
   backend:
@@ -28,19 +72,23 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      redis:
+        condition: service_healthy
     ports:
       - "3001:3001"
     environment:
-      # Connection via le nom du service "db" dans le réseau Docker
       DATABASE_URL: postgresql://${POSTGRES_USER:-ecoEats}:${POSTGRES_PASSWORD:-Damuss010197}@db:5432/${POSTGRES_DB:-EcoEats}?schema=public
       JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET}
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
       STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY}
       STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET}
       CORS_ORIGIN: ${CORS_ORIGIN:-*}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
       PORT: 3001
-    # On force la migration Prisma au démarrage sur le VPS
     command: sh -c "npx prisma db push && node dist/index.js"
+    networks:
+      - ecoeats_net
 
   # --- Frontend Next.js (Docker Hub) ---
   frontend:
@@ -55,6 +103,14 @@ services:
       NODE_ENV: production
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
       NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: ${NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY}
+    networks:
+      - ecoeats_net
 
 volumes:
   postgres_data:
+  prometheus_data:
+  grafana_data:
+
+networks:
+  ecoeats_net:
+    driver: bridge

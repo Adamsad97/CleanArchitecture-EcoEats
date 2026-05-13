@@ -63,6 +63,7 @@ import type { UpdateMenuItemStockUseCase } from "../../../application/usecases/m
 import type { CreateMenuItemOptionUseCase } from "../../../application/usecases/menu/CreateMenuItemOptionUseCase.js";
 import type { ExportMenuCsvUseCase } from "../../../application/usecases/menu/ExportMenuCsvUseCase.js";
 import type { ImportMenuCsvUseCase } from "../../../application/usecases/menu/ImportMenuCsvUseCase.js";
+import { MetricsService } from "../../monitoring/MetricsService.js";
 
 export type ExpressFrameworkDependencies = {
   userRepository: IUserRepository;
@@ -116,6 +117,7 @@ export type ExpressFrameworkDependencies = {
   completeDeliveryUseCase:           CompleteDeliveryUseCase;
   getDriverWalletUseCase:            GetDriverWalletUseCase;
   notificationGateway:               INotificationGateway;
+  metricsService:                    MetricsService;
   requireAuthentication: RequestHandler;
   corsOrigin: string | string[];
 };
@@ -129,6 +131,25 @@ export const createExpressApp = (dependencies: ExpressFrameworkDependencies): Ex
   // Stripe webhook requires raw body before express.json middleware.
   app.use("/payment/webhook", express.raw({ type: "application/json" }));
   app.use(express.json());
+  
+  // Middleware de métriques
+  app.use((req: Request, res: Response, next: NextFunction) => {
+    const start = process.hrtime();
+    res.on("finish", () => {
+      const diff = process.hrtime(start);
+      const duration = diff[0] + diff[1] / 1e9;
+      const route = req.route ? req.route.path : req.path;
+      
+      MetricsService.httpRequestDuration.observe(
+        { method: req.method, route, status_code: res.statusCode },
+        duration
+      );
+      MetricsService.totalRequests.inc(
+        { method: req.method, route, status_code: res.statusCode }
+      );
+    });
+    next();
+  });
   app.use("/uploads", express.static("uploads"));
 
   app.use(
@@ -228,6 +249,10 @@ export const createExpressApp = (dependencies: ExpressFrameworkDependencies): Ex
 
   app.get("/", (_request: Request, response: Response) => response.json({ message: "EcoEats API — Express" }));
   app.get("/health", (_request: Request, response: Response) => response.json({ status: "ok", framework: "express" }));
+  app.get("/metrics", async (_request: Request, response: Response) => {
+    response.setHeader("Content-Type", dependencies.metricsService.getContentType());
+    response.send(await dependencies.metricsService.getMetrics());
+  });
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   app.use((error: Error, _request: Request, response: Response, _next: NextFunction) => {

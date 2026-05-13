@@ -584,9 +584,21 @@ model Subscription {
     started_at DateTime
     expires_at DateTime
     user       User               @relation(fields: [user_id], references: [id])
-
     @@index([user_id])
     @@index([status])
     @@index([expires_at])
 }
 
+model DomainEvent {
+    id             String   @id @default(uuid())
+    aggregate_id   String
+    aggregate_type String
+    event_type     String
+    payload        Json
+    created_at     DateTime @default(now())
+
+    @@index([aggregate_id])
+    @@index([aggregate_type])
+    @@index([event_type])
+    @@index([created_at])
+}

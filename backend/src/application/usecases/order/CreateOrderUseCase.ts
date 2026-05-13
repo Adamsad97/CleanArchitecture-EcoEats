@@ -5,6 +5,7 @@ import type { IOrderRepository, CreateOrderInput, OrderSummary } from "../../por
 import type { IRestaurantRepository } from "../../ports/IRestaurantRepository.js";
 import type { IMenuItemRepository } from "../../ports/IMenuItemRepository.js";
 import type { IPaymentMethodRepository } from "../../ports/IPaymentMethodRepository.js";
+import type { IEventStore } from "../../ports/IEventStore.js";
 import { Cart, CartItem } from "../../../domain/entities/Cart.js";
 import { Order } from "../../../domain/entities/Order.js";
 import { Distance } from "../../../domain/value-objects/Distance.js";
@@ -18,6 +19,22 @@ export class RestaurantNotFoundError extends DomainError {
 }
 
 export type CreateOrderError = EmptyCartError | RestaurantNotFoundError | OutOfStockError;
+
+export type CreatedOrderLine = {
+  menuItemId: string;
+  name: string;
+  unitPrice: number;
+  quantity: number;
+};
+
+export type CreateOrderResponse = {
+  id: string;
+  status: string;
+  subtotal: number;
+  deliveryFee: number;
+  total: number;
+  estimatedAt: string;
+};
 
 export type CreateOrderUseCaseInput = {
   userId:          string;
@@ -42,9 +59,10 @@ export class CreateOrderUseCase {
     private readonly restaurantRepository: IRestaurantRepository,
     private readonly menuItemRepository:   IMenuItemRepository,
     private readonly paymentMethodRepository: IPaymentMethodRepository,
+    private readonly eventStore:            IEventStore,
   ) {}
 
-  async execute(input: CreateOrderUseCaseInput): Promise<Result<OrderSummary, CreateOrderError>> {
+  async execute(input: CreateOrderUseCaseInput): Promise<Result<CreateOrderResponse, CreateOrderError>> {
     const restaurant = await this.restaurantRepository.findById(input.rawInput.restaurantId);
     if (!restaurant) return failure(new RestaurantNotFoundError());
 
@@ -108,6 +126,28 @@ export class CreateOrderUseCase {
       }
     }
 
-    return ok(summary);
+    return ok({
+      id:          summary.id,
+      status:      summary.status,
+      subtotal:    summary.subtotal,
+      deliveryFee: summary.deliveryFee,
+      total:       summary.total,
+      estimatedAt: summary.estimatedAt,
+    });
+
+    // Event Sourcing : Enregistrer la création
+    await this.eventStore.save({
+      aggregateId:   summary.id,
+      aggregateType: "Order",
+      eventType:     "OrderCreated",
+      payload: {
+        userId:          input.userId,
+        restaurantId:   input.rawInput.restaurantId,
+        total:          summary.total,
+        items:          input.rawInput.items.length,
+      },
+    });
+
+    return res;
   }
 }
