@@ -1,6 +1,6 @@
 import type { PrismaClient } from "../../generated/prisma/client.js";
-import type { IDriverRepository, CreateDriverProfileInput } from "../../application/ports/IDriverRepository.js";
-import type { DriverProfile, AvailableDelivery, ActiveDelivery } from "../../application/driver/types.js";
+import type { IDriverRepository, CreateDriverProfileInput, CreditEarningInput } from "../../application/ports/IDriverRepository.js";
+import type { DriverProfile, AvailableDelivery, ActiveDelivery, EarningRecord, DriverWallet } from "../../application/driver/types.js";
 
 export class PrismaDriverRepository implements IDriverRepository {
   constructor(private readonly prismaClient: PrismaClient) {}
@@ -167,5 +167,47 @@ export class PrismaDriverRepository implements IDriverRepository {
       data:  { status: "delivered", delivered_at: new Date() },
     });
     return { success: true };
+  }
+
+  async creditEarning(input: CreditEarningInput): Promise<EarningRecord> {
+    const total = input.baseAmount + input.distanceFee + input.tipAmount;
+    const record = await this.prismaClient.driverEarning.create({
+      data: {
+        driver:      { connect: { id: input.driverId } },
+        order:       { connect: { id: input.orderId } },
+        base_amount: input.baseAmount,
+        bonus:       input.distanceFee,
+        tip:         input.tipAmount,
+        total,
+        status:      "pending",
+      },
+    });
+    return {
+      id:          record.id,
+      orderId:     record.order_id,
+      baseAmount:  Number(record.base_amount),
+      distanceFee: Number(record.bonus),
+      tipAmount:   Number(record.tip),
+      total:       Number(record.total),
+      earnedAt:    record.paid_at?.toISOString() ?? new Date().toISOString(),
+    };
+  }
+
+  async getWallet(driverId: string): Promise<DriverWallet> {
+    const records = await this.prismaClient.driverEarning.findMany({
+      where:   { driver_id: driverId },
+      orderBy: { paid_at: "desc" },
+    });
+    const earnings: EarningRecord[] = records.map((r) => ({
+      id:          r.id,
+      orderId:     r.order_id,
+      baseAmount:  Number(r.base_amount),
+      distanceFee: Number(r.bonus),
+      tipAmount:   Number(r.tip),
+      total:       Number(r.total),
+      earnedAt:    r.paid_at?.toISOString() ?? new Date().toISOString(),
+    }));
+    const balanceEuros = earnings.reduce((sum, e) => sum + e.total, 0);
+    return { balanceEuros, earnings };
   }
 }

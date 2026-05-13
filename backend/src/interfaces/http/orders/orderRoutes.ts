@@ -5,7 +5,10 @@ import type { CreateOrderUseCase, CreateOrderUseCaseInput } from "../../../appli
 import type { GetUserOrdersUseCase } from "../../../application/usecases/order/GetUserOrdersUseCase.js";
 import type { GetRestaurantOrdersUseCase } from "../../../application/usecases/order/GetRestaurantOrdersUseCase.js";
 import type { UpdateOrderStatusUseCase } from "../../../application/usecases/order/UpdateOrderStatusUseCase.js";
+import type { GetOrderInvoiceUseCase } from "../../../application/usecases/order/GetOrderInvoiceUseCase.js";
 import type { IPaymentMethodRepository } from "../../../application/ports/IPaymentMethodRepository.js";
+import { InvoicePresenter } from "../../presenters/InvoicePresenter.js";
+import { domainErrorToStatus } from "../utils/domainErrorToStatus.js";
 
 const orderItemSchema = z.object({
   menuItemId:       z.string().uuid(),
@@ -23,6 +26,7 @@ const createOrderSchema = z.object({
   clientLat:        z.number(),
   clientLng:        z.number(),
   items:            z.array(orderItemSchema).min(1),
+  tipAmount:        z.number().min(0).optional(),
   paymentMethodId:  z.string().uuid().optional(),
 });
 
@@ -31,6 +35,7 @@ export function createOrderRoutes(
   getUserOrdersUseCase:      GetUserOrdersUseCase,
   getRestaurantOrdersUseCase: GetRestaurantOrdersUseCase,
   updateOrderStatusUseCase:  UpdateOrderStatusUseCase,
+  getOrderInvoiceUseCase:    GetOrderInvoiceUseCase,
   paymentMethodRepository:   IPaymentMethodRepository,
   requireAuth:               RequestHandler,
 ): Router {
@@ -61,11 +66,19 @@ export function createOrderRoutes(
   /* ── PATCH /:orderId/status — Changer le statut (accept/refuse/prepare) ── */
   router.patch("/:orderId/status", requireAuth, async (request: Request, response: Response) => {
     const { orderId } = request.params;
-    const { status }  = request.body as { status?: string };
-    if (!status) { response.status(400).json({ message: "Statut requis" }); return; }
+    const parsed = z.object({
+      status:          z.string(),
+      prepTimeMinutes: z.number().int().positive().optional(),
+    }).safeParse(request.body);
+    if (!parsed.success) { response.status(400).json({ message: "Statut requis" }); return; }
 
     try {
-      const result = await updateOrderStatusUseCase.execute(orderId, status, request.user!.id);
+      const result = await updateOrderStatusUseCase.execute(
+        orderId,
+        parsed.data.status,
+        request.user!.id,
+        parsed.data.prepTimeMinutes,
+      );
       if (!result.ok) {
         const statusCode = result.error.code === "UNAUTHORIZED_ORDER_ACCESS" ? 403
           : result.error.code === "ORDER_NOT_FOUND"                          ? 404
@@ -89,28 +102,20 @@ export function createOrderRoutes(
 
     const userId = request.user!.id;
 
-    const savedPaymentMethods = await paymentMethodRepository.findAllByUserId(userId);
-    const defaultPaymentMethod = savedPaymentMethods.find((method) => method.isDefault) ?? savedPaymentMethods[0];
-    const resolvedPaymentMethodId = parsed.data.paymentMethodId ?? defaultPaymentMethod?.id;
-
-    if (!resolvedPaymentMethodId) {
-      response.status(422).json({ message: "Aucun moyen de paiement enregistré" });
-      return;
-    }
-
     const result = await createOrderUseCase.execute({
       userId:          userId,
       clientLat:       parsed.data.clientLat,
       clientLng:       parsed.data.clientLng,
-      paymentMethodId: resolvedPaymentMethodId,
+      paymentMethodId: parsed.data.paymentMethodId,
       rawInput: {
         userId,
         restaurantId:   parsed.data.restaurantId,
         deliveryStreet: parsed.data.deliveryStreet,
         deliveryCity:   parsed.data.deliveryCity,
         items:          parsed.data.items,
-        deliveryFee:    0, // calculé par le domaine
-        paymentMethodId: resolvedPaymentMethodId,
+        deliveryFee:    0,
+        tipAmount:      parsed.data.tipAmount,
+        paymentMethodId: parsed.data.paymentMethodId,
       },
     });
 
@@ -119,6 +124,17 @@ export function createOrderRoutes(
       return;
     }
     response.status(201).json(result.value);
+  });
+
+  /* ── GET /:orderId/invoice — Facture détaillée après paiement ── */
+  router.get("/:orderId/invoice", requireAuth, async (request: Request, response: Response) => {
+    const { orderId } = request.params;
+    const result = await getOrderInvoiceUseCase.execute({ orderId, userId: request.user!.id });
+    if (!result.ok) {
+      response.status(domainErrorToStatus(result.error)).json({ message: result.error.message });
+      return;
+    }
+    response.json(InvoicePresenter.toDto(result.value));
   });
 
   return router;

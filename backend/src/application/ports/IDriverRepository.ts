@@ -1,4 +1,4 @@
-import type { DriverProfile, AvailableDelivery, ActiveDelivery } from "../driver/types.js";
+import type { DriverProfile, AvailableDelivery, ActiveDelivery, DriverWallet, EarningRecord } from "../driver/types.js";
 
 export type CreateDriverProfileInput = {
   userId:        string;
@@ -6,6 +6,14 @@ export type CreateDriverProfileInput = {
   email:         string;
   phone:         string;
   transportType: "bike" | "scooter" | "car";
+};
+
+export type CreditEarningInput = {
+  driverId:    string;
+  orderId:     string;
+  baseAmount:  number;
+  distanceFee: number;
+  tipAmount:   number;
 };
 
 export interface IDriverRepository {
@@ -19,4 +27,9 @@ export interface IDriverRepository {
   getActiveDeliveriesInfo(driverId: string): Promise<{ count: number; restaurantIds: string[] }>;
   pickupDelivery(orderId: string, driverId: string): Promise<{ success: boolean; message?: string }>;
   completeDelivery(orderId: string, driverId: string): Promise<{ success: boolean; message?: string }>;
+  /** Crédite le portefeuille virtuel du livreur après livraison. */
+  creditEarning(input: CreditEarningInput): Promise<EarningRecord>;
+  /** Retourne le solde total + l'historique des gains du livreur. */
+  getWallet(driverId: string): Promise<DriverWallet>;
 }
+

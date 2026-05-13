@@ -1,22 +1,26 @@
+version: '3.8'
+
 services:
+  # --- Base de données PostgreSQL ---
   db:
     image: postgres:16-alpine
     container_name: ecoeats-db
     restart: always
     environment:
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER:-ecoEats}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-Damuss010197}
+      POSTGRES_DB: ${POSTGRES_DB:-EcoEats}
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
-      interval: 5s
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-ecoEats} -d ${POSTGRES_DB:-EcoEats}"]
+      interval: 10s
       timeout: 5s
-      retries: 10
+      retries: 5
 
+  # --- Backend API (Docker Hub) ---
   backend:
     image: christfotso/ecoeats-backend:latest
     container_name: ecoeats-backend
@@ -27,15 +31,18 @@ services:
     ports:
       - "3001:3001"
     environment:
-      DATABASE_URL: ${DATABASE_URL}
+      # Connection via le nom du service "db" dans le réseau Docker
+      DATABASE_URL: postgresql://${POSTGRES_USER:-ecoEats}:${POSTGRES_PASSWORD:-Damuss010197}@db:5432/${POSTGRES_DB:-EcoEats}?schema=public
       JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET}
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
       STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY}
       STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET}
-      CORS_ORIGIN: ${CORS_ORIGIN}
-      HTTP_FRAMEWORK: ${HTTP_FRAMEWORK}
-      PORT: ${PORT}
+      CORS_ORIGIN: ${CORS_ORIGIN:-*}
+      PORT: 3001
+    # On force la migration Prisma au démarrage sur le VPS
+    command: sh -c "npx prisma db push && node dist/index.js"
 
+  # --- Frontend Next.js (Docker Hub) ---
   frontend:
     image: christfotso/ecoeats-frontend:latest
     container_name: ecoeats-frontend

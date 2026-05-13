@@ -60,9 +60,10 @@ export class UpdateOrderStatusUseCase {
   ) {}
 
   async execute(
-    orderId:   string,
-    newStatus: string,
-    userId:    string,
+    orderId:          string,
+    newStatus:        string,
+    userId:           string,
+    prepTimeMinutes?: number,
   ): Promise<Result<void, UpdateOrderStatusError>> {
     const order = await this.orderRepository.findById(orderId);
     if (!order) return failure(new OrderNotFoundError());
@@ -80,6 +81,11 @@ export class UpdateOrderStatusUseCase {
     }
 
     await this.orderRepository.updateStatus(orderId, nextStatus);
+
+    /* ── Temps de préparation estimé (si le restaurateur accepte la commande) ── */
+    if (nextStatus === "ACCEPTED" && prepTimeMinutes !== undefined && prepTimeMinutes > 0) {
+      await this.orderRepository.updateEstimatedTime(orderId, prepTimeMinutes);
+    }
 
     /* ── Notification + temps réel ── */
     const notif = STATUS_NOTIFICATIONS[nextStatus];

@@ -37,6 +37,7 @@ import type { GetUserOrdersUseCase } from "../../../application/usecases/order/G
 import type { GetRestaurantOrdersUseCase } from "../../../application/usecases/order/GetRestaurantOrdersUseCase.js";
 import type { UpdateOrderStatusUseCase } from "../../../application/usecases/order/UpdateOrderStatusUseCase.js";
 import { createOrderRoutes } from "../../../interfaces/http/orders/orderRoutes.js";
+import type { GetOrderInvoiceUseCase } from "../../../application/usecases/order/GetOrderInvoiceUseCase.js";
 import type { ToggleDriverStatusUseCase } from "../../../application/usecases/driver/ToggleDriverStatusUseCase.js";
 import type { GetAvailableDeliveriesUseCase } from "../../../application/usecases/driver/GetAvailableDeliveriesUseCase.js";
 import type { AcceptDeliveryUseCase } from "../../../application/usecases/driver/AcceptDeliveryUseCase.js";
@@ -46,6 +47,7 @@ import type { GetActiveDeliveryUseCase } from "../../../application/usecases/dri
 import type { PickupDeliveryUseCase } from "../../../application/usecases/driver/PickupDeliveryUseCase.js";
 import type { CompleteDeliveryUseCase } from "../../../application/usecases/driver/CompleteDeliveryUseCase.js";
 import { createDriverRoutes } from "../../../interfaces/http/driver/driverRoutes.js";
+import type { GetDriverWalletUseCase } from "../../../application/usecases/driver/GetDriverWalletUseCase.js";
 import { createMenuRoutes } from "../../../interfaces/http/menu/menuRoutes.js";
 import type { IMenuCategoryRepository } from "../../../application/ports/IMenuCategoryRepository.js";
 import type { IMenuItemRepository } from "../../../application/ports/IMenuItemRepository.js";
@@ -103,6 +105,7 @@ export type ExpressFrameworkDependencies = {
   getUserOrdersUseCase:               GetUserOrdersUseCase;
   getRestaurantOrdersUseCase:         GetRestaurantOrdersUseCase;
   updateOrderStatusUseCase:           UpdateOrderStatusUseCase;
+  getOrderInvoiceUseCase:             GetOrderInvoiceUseCase;
   toggleDriverStatusUseCase:         ToggleDriverStatusUseCase;
   getAvailableDeliveriesUseCase:     GetAvailableDeliveriesUseCase;
   acceptDeliveryUseCase:             AcceptDeliveryUseCase;
@@ -111,6 +114,7 @@ export type ExpressFrameworkDependencies = {
   getActiveDeliveryUseCase:          GetActiveDeliveryUseCase;
   pickupDeliveryUseCase:             PickupDeliveryUseCase;
   completeDeliveryUseCase:           CompleteDeliveryUseCase;
+  getDriverWalletUseCase:            GetDriverWalletUseCase;
   notificationGateway:               INotificationGateway;
   requireAuthentication: RequestHandler;
   corsOrigin: string | string[];
@@ -146,6 +150,7 @@ export const createExpressApp = (dependencies: ExpressFrameworkDependencies): Ex
       dependencies.getUserOrdersUseCase,
       dependencies.getRestaurantOrdersUseCase,
       dependencies.updateOrderStatusUseCase,
+      dependencies.getOrderInvoiceUseCase,
       dependencies.paymentMethodRepository,
       dependencies.requireAuthentication,
     ),
@@ -207,6 +212,7 @@ export const createExpressApp = (dependencies: ExpressFrameworkDependencies): Ex
     dependencies.getActiveDeliveryUseCase,
     dependencies.pickupDeliveryUseCase,
     dependencies.completeDeliveryUseCase,
+    dependencies.getDriverWalletUseCase,
     dependencies.notificationGateway,
     dependencies.requireAuthentication,
   ));

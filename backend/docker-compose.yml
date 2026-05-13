@@ -1,0 +1,34 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: ecoeats-db
+    restart: always
+    environment:
+      POSTGRES_USER: ecoeats
+      POSTGRES_PASSWORD: ecoeats_password
+      POSTGRES_DB: ecoeats_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  backend:
+    build: .
+    image: christfotso/ecoeats-backend:latest
+    container_name: ecoeats-backend
+    restart: always
+    depends_on:
+      - db
+    environment:
+      DATABASE_URL: postgresql://ecoeats:ecoeats_password@db:5432/ecoeats_db?schema=public
+      PORT: 3001
+      JWT_ACCESS_SECRET: super_secret_access_key_123
+      JWT_REFRESH_SECRET: super_secret_refresh_key_456
+      STRIPE_SECRET_KEY: sk_test_placeholder
+      STRIPE_WEBHOOK_SECRET: whsec_placeholder
+      CORS_ORIGIN: "*"
+    ports:
+      - "3001:3001"
+
+volumes:
+  postgres_data:

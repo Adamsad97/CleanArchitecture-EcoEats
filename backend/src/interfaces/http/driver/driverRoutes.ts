@@ -9,6 +9,7 @@ import type { GetDriverProfileUseCase } from "../../../application/usecases/driv
 import type { GetActiveDeliveryUseCase } from "../../../application/usecases/driver/GetActiveDeliveryUseCase.js";
 import type { PickupDeliveryUseCase } from "../../../application/usecases/driver/PickupDeliveryUseCase.js";
 import type { CompleteDeliveryUseCase } from "../../../application/usecases/driver/CompleteDeliveryUseCase.js";
+import type { GetDriverWalletUseCase } from "../../../application/usecases/driver/GetDriverWalletUseCase.js";
 import type { INotificationGateway } from "../../../application/ports/INotificationGateway.js";
 import { domainErrorToStatus } from "../utils/domainErrorToStatus.js";
 
@@ -23,6 +24,7 @@ export function createDriverRoutes(
   getActiveDeliveryUseCase:      GetActiveDeliveryUseCase,
   pickupDeliveryUseCase:         PickupDeliveryUseCase,
   completeDeliveryUseCase:       CompleteDeliveryUseCase,
+  getDriverWalletUseCase:        GetDriverWalletUseCase,
   notificationGateway:           INotificationGateway,
   requireAuth: RequestHandler,
 ): Router {
@@ -125,6 +127,16 @@ export function createDriverRoutes(
       console.error("[POST /driver/deliveries/:id/complete]", error);
       response.status(500).json({ message: "Erreur serveur" });
     }
+  });
+
+  /* ── GET /wallet — Portefeuille virtuel + historique des gains ── */
+  router.get("/wallet", requireAuth, async (request: Request, response: Response) => {
+    const result = await getDriverWalletUseCase.execute(request.user!.id);
+    if (!result.ok) {
+      response.status(domainErrorToStatus(result.error)).json({ message: result.error.message });
+      return;
+    }
+    response.json(result.value);
   });
 
   return router;

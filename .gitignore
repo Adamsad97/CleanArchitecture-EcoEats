@@ -1,53 +1,10 @@
-
-# =====================
-# DEPENDENCIES
-# =====================
-**/node_modules/
-
-# =====================
-# FRONTEND (Next.js)
-# =====================
+node_modules/
+.env
+.DS_Store
+dist/
+build/
+*.log
+.gemini/
+backend/dist/
 frontend/.next/
 frontend/out/
-frontend/build/
-frontend/.vercel/
-
-# =====================
-# BACKEND (Symfony / API)
-# =====================
-backend/vendor/
-backend/var/
-backend/cache/
-backend/logs/
-
-# =====================
-# ENV FILES
-# =====================
-**/.env
-**/.env.*
-!.env.example
-
-# =====================
-# TEST / COVERAGE
-# =====================
-coverage/
-
-# =====================
-# DEBUG LOGS
-# =====================
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-
-# =====================
-# SYSTEM FILES
-# =====================
-.DS_Store
-*.pem
-
-# =====================
-# TYPESCRIPT
-# =====================
-*.tsbuildinfo
-next-env.d.ts

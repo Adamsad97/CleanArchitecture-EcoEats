@@ -13,6 +13,8 @@ import type { ITokenService } from "../../../application/ports/ITokenService.js"
 import type { IPasswordHasher } from "../../../application/ports/IPasswordHasher.js";
 import type { GetPendingDocumentsUseCase } from "../../../application/usecases/document/GetPendingDocumentsUseCase.js";
 import type { UpdateDocumentStatusUseCase } from "../../../application/usecases/document/UpdateDocumentStatusUseCase.js";
+import type { GetRestaurantMenuUseCase } from "../../../application/usecases/menu/GetRestaurantMenuUseCase.js";
+import type { IRestaurantRepository } from "../../../application/ports/IRestaurantRepository.js";
 import type { RegisterInput, LoginInput } from "../../../application/auth/types.js";
 import { DocumentPresenter } from "../../../interfaces/presenters/DocumentPresenter.js";
 import { z } from "zod";
@@ -48,6 +50,8 @@ export function createFastifyApp(deps: {
   passwordHasher:   IPasswordHasher;
   getPendingDocumentsUseCase:  GetPendingDocumentsUseCase;
   updateDocumentStatusUseCase: UpdateDocumentStatusUseCase;
+  getRestaurantMenuUseCase:    GetRestaurantMenuUseCase;
+  restaurantRepository:        IRestaurantRepository;
   corsOrigin: string | string[];
 }) {
   const {
@@ -57,6 +61,8 @@ export function createFastifyApp(deps: {
     passwordHasher,
     getPendingDocumentsUseCase,
     updateDocumentStatusUseCase,
+    getRestaurantMenuUseCase,
+    restaurantRepository,
     corsOrigin,
   } = deps;
 
@@ -123,6 +129,18 @@ export function createFastifyApp(deps: {
   });
 
   fastifyApp.get("/health", async (_request, reply) => reply.send({ status: "ok", framework: "fastify" }));
+
+  /* ── Restaurants & Menu (Exemple de réutilisation de Use Case) ── */
+
+  fastifyApp.get("/restaurants", async () => {
+    return restaurantRepository.findAll();
+  });
+
+  fastifyApp.get<{ Params: { id: string } }>("/restaurants/:id/menu", async (request, reply) => {
+    const result = await getRestaurantMenuUseCase.execute(request.params.id);
+    if (!result.ok) return reply.code(404).send({ message: result.error.message });
+    return reply.send(result.value);
+  });
 
   /* ── Admin ── */
 

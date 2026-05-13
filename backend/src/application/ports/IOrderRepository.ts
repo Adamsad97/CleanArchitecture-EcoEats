@@ -14,6 +14,7 @@ export type CreateOrderInput = {
   deliveryCity:     string;
   items:            OrderItemInput[];
   deliveryFee:      number;
+  tipAmount?:       number;
   paymentMethodId:  string;
   /** Valeurs calculées par l'entité Order du domaine (non recalculées en infra). */
   orderId?:          string;
@@ -26,6 +27,7 @@ export type OrderSummary = {
   status:       string;
   subtotal:     number;
   deliveryFee:  number;
+  tipAmount:    number;
   total:        number;
   estimatedAt:  string;
 };
@@ -90,10 +92,23 @@ export type RestaurantOrder = {
   estimatedAt:    string;
 };
 
+export type InvoiceData = {
+  orderId:        string;
+  restaurantName: string;
+  items:          Array<{ name: string; quantity: number; unitPrice: number }>;
+  subtotal:       number;
+  deliveryFee:    number;
+  tipAmount:      number;
+  total:          number;
+  createdAt:      string;
+};
+
 export interface IOrderRepository {
   create(input: CreateOrderInput): Promise<OrderSummary>;
   findAllByUserId(userId: string): Promise<OrderDetail[]>;
   findAllByRestaurantId(restaurantId: string): Promise<RestaurantOrder[]>;
   findById(orderId: string): Promise<OrderBasicInfo | null>;
   updateStatus(orderId: string, status: string): Promise<void>;
+  updateEstimatedTime(orderId: string, prepMinutes: number): Promise<void>;
+  findByIdForInvoice(orderId: string, userId: string): Promise<InvoiceData | null>;
 }

@@ -1,8 +1,7 @@
 import type { PrismaClient } from "../../generated/prisma/client.js";
 import type { IOrderRepository, CreateOrderInput, OrderSummary, OrderDetail, RestaurantOrder, OrderBasicInfo } from "../../application/ports/IOrderRepository.js";
+import { ConfigService } from "../config/ConfigService.js";
 
-const TAXES_RATE        = 0.10;
-const ESTIMATED_MINUTES = 45;
 
 export class PrismaOrderRepository implements IOrderRepository {
   constructor(private readonly prismaClient: PrismaClient) {}
@@ -10,9 +9,10 @@ export class PrismaOrderRepository implements IOrderRepository {
   async create(input: CreateOrderInput): Promise<OrderSummary> {
     const subtotal    = input.computedSubtotal
       ?? input.items.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0);
+    const tipAmount   = input.tipAmount ?? 0;
     const total       = input.computedTotal
-      ?? subtotal + input.deliveryFee;
-    const estimatedAt = new Date(Date.now() + ESTIMATED_MINUTES * 60 * 1000);
+      ?? subtotal + input.deliveryFee + tipAmount;
+    const estimatedAt = new Date(Date.now() + ConfigService.ESTIMATED_PREP_TIME * 60 * 1000);
 
     const address = await this.prismaClient.userAddress.create({
       data: {
@@ -35,8 +35,8 @@ export class PrismaOrderRepository implements IOrderRepository {
         status:           "created",
         subtotal:              subtotal,
         delivery_fee:          input.deliveryFee,
-        taxes:                 taxes,
-        tip_amount:            0,
+        taxes:                 0,
+        tip_amount:            tipAmount,
         total:                 total,
         estimated_delivery_at: estimatedAt,
         order_items: {
@@ -65,6 +65,7 @@ export class PrismaOrderRepository implements IOrderRepository {
       status:      order.status,
       subtotal:    Number(order.subtotal),
       deliveryFee: Number(order.delivery_fee),
+      tipAmount:   Number(order.tip_amount),
       total:       Number(order.total),
       estimatedAt: order.estimated_delivery_at.toISOString(),
     };
@@ -171,5 +172,47 @@ export class PrismaOrderRepository implements IOrderRepository {
       where: { id: orderId },
       data:  { status },
     });
+  }
+
+  async updateEstimatedTime(orderId: string, prepMinutes: number): Promise<void> {
+    const estimatedAt = new Date(Date.now() + prepMinutes * 60 * 1000);
+    await this.prismaClient.order.update({
+      where: { id: orderId },
+      data:  { estimated_delivery_at: estimatedAt },
+    });
+  }
+
+  async findByIdForInvoice(orderId: string, userId: string): Promise<{
+    id: string; clientUserId: string; restaurantName: string;
+    items: Array<{ name: string; quantity: number; unitPrice: number }>;
+    subtotal: number; deliveryFee: number; tipAmount: number; total: number;
+    createdAt: string;
+  } | null> {
+    const order = await this.prismaClient.order.findUnique({
+      where:   { id: orderId },
+      include: {
+        restaurant:  { select: { name: true } },
+        order_items: {
+          include: { menu_item: { select: { name: true } } },
+        },
+      },
+    });
+    if (!order || order.user_id !== userId) return null;
+
+    return {
+      id:             order.id,
+      clientUserId:   order.user_id,
+      restaurantName: order.restaurant.name,
+      items: order.order_items.map((item) => ({
+        name:      item.menu_item?.name ?? "Article supprimé",
+        quantity:  item.quantity,
+        unitPrice: Number(item.unit_price),
+      })),
+      subtotal:    Number(order.subtotal),
+      deliveryFee: Number(order.delivery_fee),
+      tipAmount:   Number(order.tip_amount),
+      total:       Number(order.total),
+      createdAt:   order.created_at.toISOString(),
+    };
   }
 }
