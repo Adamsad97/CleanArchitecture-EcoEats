@@ -18,6 +18,7 @@ services:
       retries: 10
 
   backend:
+    build: ./backend
     image: christfotso/ecoeats-backend:latest
     container_name: ecoeats-backend
     restart: always
@@ -35,8 +36,10 @@ services:
       CORS_ORIGIN: ${CORS_ORIGIN}
       HTTP_FRAMEWORK: ${HTTP_FRAMEWORK}
       PORT: ${PORT}
+    command: sh -c "npx prisma db push && node dist/index.js"
 
   frontend:
+    build: ./frontend
     image: christfotso/ecoeats-frontend:latest
     container_name: ecoeats-frontend
     restart: always

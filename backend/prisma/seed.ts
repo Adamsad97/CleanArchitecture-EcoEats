@@ -11,12 +11,16 @@ async function main() {
   console.log("🌱 Début du seeding EcoEats (Fix Relations)...");
 
   // --- Nettoyage ---
+  await prisma.orderStatusHistory.deleteMany();
   await prisma.orderItem.deleteMany();
   await prisma.order.deleteMany();
   await prisma.menuItem.deleteMany();
   await prisma.menuCategory.deleteMany();
   await prisma.restaurant.deleteMany();
   await prisma.driver.deleteMany();
+  await prisma.review.deleteMany();
+  await prisma.loyaltyPoint.deleteMany();
+  await prisma.refreshToken.deleteMany();
   await prisma.authIdentity.deleteMany();
   await prisma.user.deleteMany();
 
